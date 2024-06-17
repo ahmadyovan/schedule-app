@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { auth } from '@/app/libs/firebase/firebase';
 import { signInWithEmailAndPassword } from "firebase/auth"
 
-export default function login() {
+export default function Login() {
 	const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState<string>('');
     const [password, setPassword] = useState<string>('');
