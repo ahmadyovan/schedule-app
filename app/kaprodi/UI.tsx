@@ -1,8 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
-import { db, ref, get, set, update, remove } from '@/app/libs/firebase/firebase';
-import { Courses, MataKuliah } from '@/app/component/types';
+import { Prodi, MataKuliah } from '@/app/component/types';
 import { fetchCourses, addCourse, updateCourse, deleteCourse } from '../component/functions';
 import CourseRow from '../component/table/row';
 
@@ -12,7 +11,7 @@ interface Proditype {
 
 const KaprodiUI = ( {prodiProps}: Proditype ) => {
 	
-  	const [courses, setCourses] = useState<Courses>({});
+  	const [courses, setCourses] = useState<Prodi>({});
   	const [selectedSemester, setSelectedSemester] = useState('');
   	const [selectedPeriod, setSelectedPeriod] = useState('');
 	const [editable, setEditable] = useState<boolean>(false);
@@ -22,23 +21,23 @@ const KaprodiUI = ( {prodiProps}: Proditype ) => {
 	const [updatedCourse, setUpdatedCourse] = useState<MataKuliah>();
 	const [editMode, setEditMode] = useState(false);
 
-	const prodi = prodiProps
-    console.log(prodi);
+	const prodijob = prodiProps
+    console.log(prodijob);
     
 
 	useEffect(() => {
-		const unsubscribe = fetchCourses(prodi, setCourses);
+		const unsubscribe = fetchCourses(prodijob, setCourses);
 	
 		return unsubscribe;
-	}, [prodi]);
+	}, [prodijob]);
 
   	const semesters = Array.from( new Set(Object.keys(courses)));
 
   	const periods = Array.from( new Set(Object.keys(courses[selectedSemester] || {}).sort((a, b) => parseInt(a) - parseInt(b))));
 
 	  const handleAddCourse = async () => {
-		if (prodi && newCourse && selectedSemester && selectedPeriod) {
-		  await addCourse(prodi, selectedSemester, selectedPeriod, newCourse);
+		if (prodijob && newCourse && selectedSemester && selectedPeriod) {
+		  await addCourse(prodijob, selectedSemester, selectedPeriod, newCourse);
 		  setNewCourse({}); // Reset the newCourse state after adding the course
 		}
 	  };
@@ -51,8 +50,8 @@ const KaprodiUI = ( {prodiProps}: Proditype ) => {
             'SKS': sks
         };
 
-        if (prodi && selectedSemester && selectedPeriod && row && updatedCourse){
-            await updateCourse(prodi, selectedSemester, selectedPeriod, row, updatedCourse)
+        if (prodijob && selectedSemester && selectedPeriod && row && updatedCourse){
+            await updateCourse(prodijob, selectedSemester, selectedPeriod, row, updatedCourse)
             setEditable(false);
 		    setEditableRowIndex('');
 		    setOriginalCourse({});
@@ -60,7 +59,7 @@ const KaprodiUI = ( {prodiProps}: Proditype ) => {
 	   };
 	  
 	  const handleDeleteCourse = async (row: string) => {
-        await deleteCourse(prodi, selectedSemester, selectedPeriod, row);
+        await deleteCourse(prodijob, selectedSemester, selectedPeriod, row);
 	  };
 
   	const handleSemesterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -150,8 +149,8 @@ const KaprodiUI = ( {prodiProps}: Proditype ) => {
 
 	return (
         
-		<div className='h-[90%] w-screen bg-white flex flex-col justify-center items-center overflow-hidden text-black px-40'>
-            <h1>{prodi}</h1>
+		<div className='h-[90%] w-screen bg-green-400 flex flex-col justify-center items-center overflow-hidden text-black px-40'>
+            <h1>{prodijob}</h1>
 			<div className='h-[70%] w-full flex flex-col justify-center items-center gap-5'>
 				<div className='w-[85%] flex justify-between'>
 					<div className='flex gap-20'>
@@ -194,7 +193,7 @@ const KaprodiUI = ( {prodiProps}: Proditype ) => {
 						<div className='w-[5%] text-center'>SKS</div>
 					</div>
 
-					<div className='h-60 w-full overflow-y-auto flex'>
+					<div className='h-60 w-full overflow-y-auto flex scroll-m-0	'>
 						<div className='h-full w-full'>
 
                             {selectedSemester && selectedPeriod &&

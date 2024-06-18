@@ -1,25 +1,18 @@
 import Navbar from "../component/navbar"
+import { getToken } from "../component/serverfunction";
+import DosenUI from "./UI";
 
-export default function DosenPage () {
-    return(
-        <div className="h-screen w-screen">
-            <Navbar />
-            <div className="h-[90%] w-full bg-green-400 flex flex-col items-center justify-center gap-32 text-4xl pb-28 font-semibold">
-                <div>
-                    <h1>MENDAFTAR MATA KULIAH</h1>
-                </div>
-                <div>
-                    <div>
-                        <div>
-                            <select name="" id=""></select>
-                        </div>
-                        <div></div>
-                        <div></div>
-                        <div></div>
-                        <div></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    )
+const DosenHome = async () => {
+
+	const tokens = await getToken();
+    
+	return(
+		<div className="h-screen w-screen">
+			<Navbar email={tokens.decodedToken.email} />
+            <DosenUI email={tokens.decodedToken.email}/>
+		</div>
+		
+	)
 }
+
+export default DosenHome

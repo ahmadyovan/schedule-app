@@ -20,7 +20,26 @@ export const fetchCourses = (prodi: string, setCourses: (courses: Courses) => vo
     });
   
     return unsubscribe;
-  	};
+};
+
+export const fetchAllCourses = (setCourses: (courses: Courses) => void): Unsubscribe => {
+    const rootRef = ref(db, "courses/");
+  
+    // Attach the onValue event listener
+    const unsubscribe = onValue(rootRef, (snapshot) => {
+		if (snapshot.exists()) {
+			const courses = snapshot.val();
+			setCourses(courses);
+		} else {
+			console.log('No data available');
+			setCourses({});
+		}
+    }, (error) => {
+      	console.error('Error fetching data:', error);
+    });
+  
+    return unsubscribe;
+};
 
 export const addCourse = async (prodi: string, selectedSemester: string, selectedPeriod: string, newCourse: MataKuliah): Promise<void> => {
 	try {

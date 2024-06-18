@@ -42,6 +42,8 @@ export default function Login() {
 		 } catch (e) {
 		   setError((e as Error).message);
 		   alert(error)
+		   console.log(error);
+		   
 		//    const errorCode = e.code;
 		//    const errorMessage = e.message;
 		//   console.log(errorCode);

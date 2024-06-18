@@ -2,7 +2,7 @@
 import { getTokens } from "next-firebase-auth-edge";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { clientConfig, serverConfig } from "@/config";
+import { clientConfig, serverConfig } from "@/app/libs/firebase/config";
 
 
 export const getToken = async () => {

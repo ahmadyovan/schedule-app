@@ -10,7 +10,7 @@ const KaprodiHome = async () => {
 
 	return(
 		<div className="h-screen w-screen">
-			<Navbar />
+			<Navbar email={tokens.decodedToken.email} />
 			<KaprodiUI prodiProps={userRole} />
 		</div>
 		

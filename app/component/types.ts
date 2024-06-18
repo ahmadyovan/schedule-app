@@ -12,6 +12,11 @@ export interface Semester {
     [key: string]: Priode;
 }
   
-export interface Courses {
+export interface Prodi {
     [key: string]: Semester;
 }
+
+export interface Courses {
+    [key: string]: Prodi;
+}
+
