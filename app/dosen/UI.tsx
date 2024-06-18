@@ -263,7 +263,7 @@ export default function DosenUI ({UID}: emailtype) {
 
             {isSent && (
                 <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-                    <div className="bg-white p-6 rounded-md">
+                    <div className="bg-white text-neutral-800  p-6 rounded-md">
                         <h2 className="text-lg font-bold mb-4">Anda telah berhasil mengirimkan jadwal</h2>
                         <button onClick={() => setIsSent(false)} className="px-4 py-2 bg-green-500 text-white rounded-md">OK</button>
                     </div>
