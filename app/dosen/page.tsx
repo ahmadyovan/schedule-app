@@ -9,7 +9,7 @@ const DosenHome = async () => {
 	return(
 		<div className="h-screen w-screen">
 			<Navbar email={tokens.decodedToken.email} />
-            <DosenUI email={tokens.decodedToken.email}/>
+            <DosenUI UID={tokens.decodedToken.uid}/>
 		</div>
 		
 	)

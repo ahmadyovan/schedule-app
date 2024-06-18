@@ -2,11 +2,9 @@ import Navbar from "../component/navbar"
 
 const Admin = () => {
 
-
     const importuser = () => {
 
     }
-
 
     return(
         <div className="h-screen w-screen bg-green-400">

@@ -9,12 +9,13 @@ import { useCoursesStore } from '@/app/libs/store';
 import { FaTrash } from "react-icons/fa6";
 import { db, ref } from '@/app/libs/firebase/firebase';
 import { child, push, set } from 'firebase/database';
+import { setUserId } from 'firebase/analytics';
 
 interface emailtype {
-    email: string | undefined
+    UID: string | undefined
 }
 
-export default function DosenUI ({email}: emailtype) {
+export default function DosenUI ({UID}: emailtype) {
 
     const [courses, setCourses] = useState<Courses>({});
     const [selectedSemester, setSelectedSemester] = useState<string>('');
@@ -133,12 +134,14 @@ export default function DosenUI ({email}: emailtype) {
     };
 
     const sendDataToFirebase = () => {
-        if (!email) return
+        if (!UID) return
         const coursesRef = ref(db, 'registeredCourses');
         coursesData.forEach((course) => {
-          const newCourseRef = push(child(coursesRef, email));
+          const newCourseRef = push(child(coursesRef, UID));
           set(newCourseRef, course);
         });
+        console.log("berhasil menyimpan");
+        
     };
 
 
