@@ -32,6 +32,17 @@
   /* border: 1px red solid; */
 }
 
+.side-navbar:hover .child {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.child {
+  opacity: 0;
+  transform: translateX(-20px);
+  transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
 body {
   color: rgb(var(--foreground-rgb));
   background: linear-gradient(

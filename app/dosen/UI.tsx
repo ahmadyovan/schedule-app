@@ -1,34 +1,32 @@
 'use client'
-import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
+// import { createJSONStorage} from 'zustand/middleware';
 import { useEffect, useState } from "react";
 import { Courses, Prodi, Semester, Priode, MataKuliah } from "../component/types";
-import { fetchAllCourses, fetchCourses } from "../component/functions";
-import CustomSelect from "../component/selection";
+import { fetchAllCourses} from "../component/functions";
 import { useCoursesStore } from '@/app/libs/store';
 import { FaTrash } from "react-icons/fa6";
 import { db, ref } from '@/app/libs/firebase/firebase';
 import { child, push, set } from 'firebase/database';
-import { setUserId } from 'firebase/analytics';
 
 interface emailtype {
-    UID: string | undefined
+    uid: string | undefined
+    namadosen: string
 }
 
-export default function DosenUI ({UID}: emailtype) {
+export default function DosenUI ({uid, namadosen}: emailtype) {
 
     const [courses, setCourses] = useState<Courses>({});
     const [selectedSemester, setSelectedSemester] = useState<string>('');
     const [selectedPeriod, setSelectedPeriod] = useState<string>('');
     const [selectedProdi, setSelectedProdi] = useState<string>('');
-    const [selectedCourse, setSelectedCourse] = useState<string>();
+    const [selectedCourse, setSelectedCourse] = useState<MataKuliah | undefined>(undefined);
     const [selectedDay, setSelectedDay] = useState<string>('');
     const [selectedTime, setSelectedTime] = useState<string>('');
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [isSent, setIsSent] = useState(false);
-    const { coursesData, addCourse, removeCourse } = useCoursesStore((state) => state);
-
-    const useStorage = createJSONStorage(() => sessionStorage);
+    const {coursesData, addCourse, removeCourse } = useCoursesStore((state) => state);
+    
+    // const useStorage = createJSONStorage(() => sessionStorage);
 
     useEffect(() => {
         const unsubscribe = fetchAllCourses(setCourses);
@@ -40,13 +38,13 @@ export default function DosenUI ({UID}: emailtype) {
     const periods = selectedSemester ? Object.keys((courses[selectedProdi]?.[selectedSemester] || {}) as Semester) : [];
     const courseList = selectedPeriod ? Object.values((courses[selectedProdi]?.[selectedSemester]?.[selectedPeriod] || {}) as Priode) : [];
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jum at'];
-    const times = ['08:00 - 09:40', '10:00 - 11:40', '13:00 - 14:40', '15:00 - 16:40', '17:00 - 18:40'];
+    const times = ['Pagi', 'Sore'];
 
     const handleProdiChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         setSelectedProdi(e.target.value);
         setSelectedSemester('');
         setSelectedPeriod('');
-        setSelectedCourse('');
+        setSelectedCourse(undefined);
         setSelectedDay('');
         setSelectedTime('');
     };
@@ -54,20 +52,21 @@ export default function DosenUI ({UID}: emailtype) {
     const handleSemesterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         setSelectedSemester(e.target.value);
         setSelectedPeriod('');
-        setSelectedCourse('');
+        setSelectedCourse(undefined);
         setSelectedDay('');
         setSelectedTime('');
     };
 
     const handlePeriodChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         setSelectedPeriod(e.target.value);
-        setSelectedCourse('');
+        setSelectedCourse(undefined);
         setSelectedDay('');
         setSelectedTime('');
     };
 
     const handleCourseChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setSelectedCourse(e.target.value);
+        const selectedCourseObj = courseList.find(course => course['MATA KULIAH'] === e.target.value);
+        setSelectedCourse(selectedCourseObj);
         setSelectedDay('');
         setSelectedTime('');
     };
@@ -81,33 +80,32 @@ export default function DosenUI ({UID}: emailtype) {
         setSelectedTime(e.target.value);
     };
 
-    
-
-
-    const handleAddCourse  = () => {
+    const handleAddCourse = () => {
         if (
+            !selectedCourse ||
             !selectedSemester ||
             !selectedPeriod ||
             !selectedProdi ||
-            !selectedCourse ||
             !selectedDay ||
             !selectedTime
         ) {
             // Tampilkan pesan error atau lakukan tindakan lain jika ada nilai yang kosong
             return;
         }
-    
-        const makeCourse = {
+
+        const makeCourse = { 
             prodi: selectedProdi,
             semester: selectedSemester,
             period: selectedPeriod,
-            course: selectedCourse,
+            dosen: namadosen,
+            kode: selectedCourse.KODE || '',
+            course: selectedCourse['MATA KULIAH'] || '',
             day: selectedDay,
             time: selectedTime
         };
-    
+
         addCourse(makeCourse);
-    
+
         // Reset nilai setelah menambahkan course
         setSelectedCourse(undefined);
         setSelectedDay('');
@@ -119,12 +117,10 @@ export default function DosenUI ({UID}: emailtype) {
     };
 
     const handlerSendCourse = () => {
-        console.log('fffffffffffffffff');
-        
         setShowConfirmation(true);
     };
 
-    const handleConfirmation = (confirm: any) => {
+    const handleConfirmation = (confirm: boolean) => {
         setShowConfirmation(false);
     
         if (confirm) {
@@ -134,17 +130,14 @@ export default function DosenUI ({UID}: emailtype) {
     };
 
     const sendDataToFirebase = () => {
-        if (!UID) return
+        if(!uid) return
         const coursesRef = ref(db, 'registeredCourses');
         coursesData.forEach((course) => {
-          const newCourseRef = push(child(coursesRef, UID));
+          const newCourseRef = push(child(coursesRef, uid));
           set(newCourseRef, course);
         });
         console.log("berhasil menyimpan");
-        
     };
-
-
 
     return (
         <div className="h-[90%] w-full bg-green-400 flex flex-col items-center justify-center px-36 pb-20 pt-10 gap-16 text-3xl font-semibold">
@@ -156,7 +149,7 @@ export default function DosenUI ({UID}: emailtype) {
                 <div className="flex gap-8">
                     <div className='flex gap-5 '>
                         <select className="w-60 py-1 px-2 bg-neutral-600 text-white" id="prodi" value={selectedProdi} onChange={handleProdiChange}>
-                            {!selectedProdi && <option value="">Prodi</option>}
+                            <option value="">Prodi</option>
                             {prodis.map(prodi => (
                                 <option key={prodi} value={prodi}>
                                     {prodi}
@@ -166,7 +159,7 @@ export default function DosenUI ({UID}: emailtype) {
                     </div>
                     <div className='flex gap-5'>
                         <select className="w-44 py-1 px-2 bg-neutral-600 text-white" id="semester" value={selectedSemester} onChange={handleSemesterChange}>
-                            {!selectedSemester && <option value="">Semester</option>}
+                            <option value="">Semester</option>
                             {semesters.map(semester => (
                                 <option key={semester} value={semester}>
                                     {semester}
@@ -185,7 +178,7 @@ export default function DosenUI ({UID}: emailtype) {
                         </select>
                     </div>
                     <div className='flex gap-5'>
-                        <select className="w-64 py-1 px-2 bg-neutral-600 text-white" id="course" value={selectedCourse} onChange={handleCourseChange}>
+                        <select className="w-64 py-1 px-2 bg-neutral-600 text-white" id="course" value={selectedCourse?.['MATA KULIAH'] || ''} onChange={handleCourseChange}>
                             <option value="">Matakuliah</option>
                             {courseList.map((course) => (
                                 <option key={course.KODE} value={course['MATA KULIAH']}>
@@ -217,7 +210,6 @@ export default function DosenUI ({UID}: emailtype) {
                     <div className="cursor-pointer" onClick={handleAddCourse}>tambahkan</div>
                 </div>
                 <div className="w-full h-full overflow-hidden border-4 flex flex-col border-green-600  text-gray-300 bg-neutral-800">
-                    
                     <div className='h-20 flex gap-5 px-10 bg-neutral-800 py-3'>
                         <div className='w-[16%]'>prodi</div>
                         <div className='w-[7%]'>semester</div>
@@ -233,7 +225,7 @@ export default function DosenUI ({UID}: emailtype) {
                             <div className='w-[16%]'>{course.prodi}</div>
                             <div className='w-[7%]'>{course.semester}</div>
                             <div className='w-[9%]'>{course.period}</div>
-                            <div className='w-[40%]'>{course.course}</div>
+                            <div className='w-[40%]'>{course.course} - {course.kode}</div>
                             <div className='w-[9%]'>{course.day}</div>
                             <div className='w-[11%]'>{course.time}</div>
                             <div className='w-[3%]'>
@@ -272,9 +264,3 @@ export default function DosenUI ({UID}: emailtype) {
         </div>
     )
 }
-
-// const handleValueChange = (value: string) => console.log(value);
-//     const handleValueChange2 = (value: string) => console.log(value);
-
-    // {/* <CustomSelect propsvalue={prodis} handlevalue={handleValueChange} />
-    //                 <CustomSelect propsvalue={semesters} handlevalue={handleValueChange2} /> */}

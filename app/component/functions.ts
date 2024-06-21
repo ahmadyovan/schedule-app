@@ -1,7 +1,18 @@
 import { db, ref, get, set, onValue, update, remove, Unsubscribe } from '@/app/libs/firebase/firebase';
 import { Courses, MataKuliah } from '@/app/component/types';
 
-
+interface RegisteredCourse {
+	key: string;
+	kode:string;
+	course: string;
+	day: string;
+	dosen: string;
+	period: string;
+	prodi: string;
+	semester: string;
+	time: string;
+}
+  
 
 export const fetchCourses = (prodi: string, setCourses: (courses: Courses) => void): Unsubscribe => {
     const rootRef = ref(db, "courses/" + prodi + "/");
@@ -21,6 +32,47 @@ export const fetchCourses = (prodi: string, setCourses: (courses: Courses) => vo
   
     return unsubscribe;
 };
+
+type RegisteredCourseOrInvalid = RegisteredCourse | { key: string };
+
+export const fetchRegisteredCourses = (
+	setRegisteredCourses: (courses: RegisteredCourse[]) => void,
+	prodiFilter: string
+  ) => {
+	const registeredCoursesRef = ref(db, 'registeredCourses');
+  
+	const unsubscribe = onValue(registeredCoursesRef, (snapshot) => {
+	  const data = snapshot.val();
+	  if (data) {
+		const courses: RegisteredCourseOrInvalid[] = [];
+  
+		// Iterasi melalui setiap anak dari node registeredCourses
+		Object.entries(data).forEach(([userId, userCourses]) => {
+		  if (typeof userCourses === 'object' && userCourses !== null) {
+			Object.entries(userCourses).forEach(([key, value]) => {
+			  if (typeof value === 'object' && value !== null) {
+				const course = { key, ...value } as RegisteredCourse;
+				if (course.prodi === prodiFilter) {
+				  courses.push(course);
+				}
+			  } else {
+				courses.push({ key } as RegisteredCourseOrInvalid);
+			  }
+			});
+		  }
+		});
+  
+		setRegisteredCourses(courses.filter((course): course is RegisteredCourse => 'course' in course));
+	  } else {
+		console.log('No data available');
+		setRegisteredCourses([]);
+	  }
+	}, (error) => {
+	  console.error('Error fetching registered courses:', error);
+	});
+  
+	return unsubscribe;
+  };
 
 export const fetchAllCourses = (setCourses: (courses: Courses) => void): Unsubscribe => {
     const rootRef = ref(db, "courses/");
@@ -61,6 +113,15 @@ export const addCourse = async (prodi: string, selectedSemester: string, selecte
 	}
 };
 
+export const addregister = async (registered: boolean, ) => {
+	try {
+		const courseRef = ref(db, `/`);
+		await update(courseRef, {"register": registered});
+	} catch (error) {
+		console.error('Error updating course:', error);
+	}
+};
+
 export const updateCourse = async (prodi: string, selectedSemester: string, selectedPeriod: string, row: string, updatedCourse: MataKuliah): Promise<void> => {
 	try {
 		const courseRef = ref(db, `courses/${prodi}/${selectedSemester}/${selectedPeriod}/${row}`);
@@ -81,8 +142,10 @@ export const deleteCourse = async (prodi: string, selectedSemester: string, sele
 
 export const getUserRole = async (userId: string) => {
 	try {
-		const snapshot = await get(ref(db, `User/${userId}/Job`));
+		const snapshot = await get(ref(db, `user/${userId}/Job`));
+		console.log(snapshot.val);
 		return snapshot.val();
+		
 		
 	} catch (error) {
 		console.error('Error getting user role:', error);
@@ -92,7 +155,18 @@ export const getUserRole = async (userId: string) => {
 
 export const getProdi = async (userId: string) => {
 	try {
-		const snapshot = await get(ref(db, `User/${userId}/Prodi`));
+		const snapshot = await get(ref(db, `user/${userId}/Prodi`));
+		return snapshot.val();
+		
+	} catch (error) {
+		console.error('Error getting user role:', error);
+		return null;
+	}
+};
+
+export const getnama = async (userId: string) => {
+	try {
+		const snapshot = await get(ref(db, `user/${userId}/name`));
 		return snapshot.val();
 		
 	} catch (error) {

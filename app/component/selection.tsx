@@ -1,26 +1,27 @@
 import { ChangeEvent, useCallback, useState } from "react";
 
 interface SelectType {
+    name: string,
     propsvalue: any[];
-    handlevalue: (value: string) => void; // Ubah tipe data handlevalue menjadi fungsi
+    handlevalue: (value: string) => void; // Correctly define the handlevalue prop as a function
 }
 
-const CustomSelect = ({ propsvalue, handlevalue }: SelectType) => {
+const CustomSelect = ({ name, propsvalue, handlevalue }: SelectType) => {
     const [value, setValue] = useState<string>("");
 
     const handleChange = useCallback(
         (e: ChangeEvent<HTMLSelectElement>) => {
             const selectedValue = e.target.value;
-            setValue(selectedValue)
-            handlevalue(selectedValue); // Panggil fungsi callback handlevalue dengan nilai terpilih
+            setValue(selectedValue);
+            handlevalue(selectedValue); // Pass the selected value to the handlevalue function
         },
         [handlevalue]
     );
 
     return (
-        <div>
-            <select className="max-w-60" id="prodi" value={value} onChange={handleChange}>
-                <option value="">Pilih Prodi</option>
+        <div className="flex gap-5">
+            <select className="max-w-60" id="" value={value} onChange={handleChange}>
+                { !value && (<option value="">Pilih {name}</option>)}
                 {propsvalue.map((prodi: any) => (
                     <option key={prodi} value={prodi}>
                         {prodi}
@@ -31,4 +32,4 @@ const CustomSelect = ({ propsvalue, handlevalue }: SelectType) => {
     );
 };
 
-export default CustomSelect;    
+export default CustomSelect;

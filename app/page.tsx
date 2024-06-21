@@ -7,7 +7,10 @@ export default async function Home() {
 	const tokens = await getToken();
   	const userRole = tokens ? await getUserRole(tokens.decodedToken.uid) : null;
 
+	console.log(tokens);
+	
+
 	return (
-		<HomePage email={tokens} userRole={userRole} />
+		<HomePage uuid={tokens.decodedToken.uid} email={tokens} userRole={userRole} />
 	);
 }
