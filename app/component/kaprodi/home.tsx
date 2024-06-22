@@ -36,7 +36,7 @@ const KaprodiHome = ( {programStudi}: Proditype ) => {
 
     useEffect(() => {
 		const unsubscribe = fetchCourses(programStudi, setCourses);
-
+        
         
 	
 		return unsubscribe;

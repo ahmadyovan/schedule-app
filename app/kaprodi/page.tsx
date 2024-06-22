@@ -13,7 +13,7 @@ const KaprodiHome = async () => {
 		<div className="h-screen w-screen">
 			<Navbar nama={user} />
 			<div className="h-[90%] w-full">
-				<KaprodiInterface role={userRole} />
+				<KaprodiInterface role={userRole}/>
 			</div>
 		</div>
 		

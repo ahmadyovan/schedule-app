@@ -97,6 +97,7 @@ export default function DosenUI ({uid, namadosen}: emailtype) {
             prodi: selectedProdi,
             semester: selectedSemester,
             period: selectedPeriod,
+            dosenID: uid,
             dosen: namadosen,
             kode: selectedCourse.KODE || '',
             course: selectedCourse['MATA KULIAH'] || '',

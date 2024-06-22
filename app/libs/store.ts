@@ -5,7 +5,8 @@ interface CourseData {
     prodi: string;
     semester: string;
     period: string;
-    kode: string;
+    kode: string
+    dosenID:string | undefined;
     dosen: string
     course: string;
     day: string;

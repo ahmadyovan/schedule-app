@@ -6,6 +6,7 @@ interface RegisteredCourse {
 	kode:string;
 	course: string;
 	day: string;
+	dosenID: string
 	dosen: string;
 	period: string;
 	prodi: string;
@@ -32,6 +33,7 @@ export const fetchCourses = (prodi: string, setCourses: (courses: Courses) => vo
   
     return unsubscribe;
 };
+
 
 type RegisteredCourseOrInvalid = RegisteredCourse | { key: string };
 
@@ -131,6 +133,22 @@ export const updateCourse = async (prodi: string, selectedSemester: string, sele
 	}
 };
 
+export const updateCourseField = async (
+	userId: string,
+	courseKey: string,
+	field: keyof RegisteredCourse,
+	value: string
+  ) => {
+	try {
+	  const courseRef = ref(db, `registeredCourses/${userId}/${courseKey}`);
+	  await update(courseRef, { [field]: value });
+	  console.log(`Successfully updated ${field} for course ${courseKey}`);
+	} catch (error) {
+	  console.error(`Error updating ${field} for course ${courseKey}:`, error);
+	  throw error;
+	}
+  };	
+
 export const deleteCourse = async (prodi: string, selectedSemester: string, selectedPeriod: string, row: string): Promise<void> => {
 	try {
 		const courseRef = ref(db, `courses/${prodi}/${selectedSemester}/${selectedPeriod}/${row}`);
@@ -174,5 +192,3 @@ export const getnama = async (userId: string) => {
 		return null;
 	}
 };
-
-
