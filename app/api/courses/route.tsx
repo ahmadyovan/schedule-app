@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const FLASK_SERVER_URL = 'schedule-app-backend.vercel.app';
+const FLASK_SERVER_URL = 'schedule-app-backend.vercel.app/';
 
 export async function POST(request: Request) {
   try {
