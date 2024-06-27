@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const FLASK_SERVER_URL = 'http://127.0.0.1:5000/';
+const FLASK_SERVER_URL = 'https://yovan.pythonanywhere.com/';
 
 export async function POST(request: Request) {
   try {
