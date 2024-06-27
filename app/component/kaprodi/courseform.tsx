@@ -14,7 +14,7 @@
 
     export const CourseForm: React.FC<CourseFormProps> = ({ initialCourse, programStudi, onClose, action }) => {
 
-        const dosenList = useUsers("", 'Dosen');
+        const dosenList = useUsers(programStudi, 'Dosen');
 
         function courseReducer(state: Partial<RegisteredCourse>, action: CourseAction): Partial<RegisteredCourse> {
             switch (action.type) {

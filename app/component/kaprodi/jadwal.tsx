@@ -62,6 +62,7 @@ const CourseTable: React.FC<{ courses: RegisteredCourse[], timeFilter: string[] 
         </div>
     );
 });
+CourseTable.displayName = 'CourseTable';
 
 const SemesterSchedule: React.FC<{ courses: RegisteredCourse[], period: string }> = React.memo(({ courses, period }) => {
     const semesterCourses = useMemo(() => 
@@ -85,6 +86,8 @@ const SemesterSchedule: React.FC<{ courses: RegisteredCourse[], period: string }
         </div>
     );
 });
+
+SemesterSchedule.displayName = 'SemesterSchedule';
 
 interface JadwalProps {
     programStudi: string

@@ -145,8 +145,6 @@ export const fetchAllCourses = (setCourses: (courses: Courses) => void): Unsubsc
 // 	return unsubscribe;
 //   };
 
-
-
   export const fetchNotRegisteredCourses = (prodi: string, setNotRegisteredCourses: (courses: ExtendedMataKuliah[]) => void): Unsubscribe => {
 	const unsubscribe = onValue(ref(db, `courses/${prodi}`), (coursesSnapshot) => {
 	  const allCourses: Courses[string] = coursesSnapshot.val() || {};
