@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 //const FLASK_SERVER_URL = 'http://127.0.0.1:5000/';
-const FLASK_SERVER_URL = 'http://yovan.pythonanywhere.com/';
+const FLASK_SERVER_URL = 'https://schedule-backend-7li8qada4-ahmadyovanardiansyahs-projects.vercel.app/';
 
 export async function POST(request: Request) {
   try {
