@@ -1,14 +1,17 @@
 
 interface selectType {
-    onMenuSelect: (menu: 'matakuliah' | 'verifikasi') => void;
+    onMenuSelect: (menu: 'matakuliah' | 'verifikasi' | 'jadwal') => void;
 }
 
 const SideNavbar = ({ onMenuSelect }: selectType) => {
 
     return (
-        <div className="h-full w-20 hover:w-40 bg-neutral-900 transition-width duration-300 ease-in-out side-navbar">
-            <div className="child cursor-pointer" onClick={() => onMenuSelect('matakuliah')}>mata kuliah</div>
-            <div className="child cursor-pointer" onClick={() => onMenuSelect('verifikasi')}>Verifikasi</div>
+        <div className="h-full w-40 bg-neutral-900 py-5">
+            <div className="flex flex-col px-5 gap-3">
+                <div className="cursor-pointer" onClick={() => onMenuSelect('matakuliah')}>mata kuliah</div>
+                <div className="cursor-pointer" onClick={() => onMenuSelect('verifikasi')}>Verifikasi</div>
+                <div className="cursor-pointer" onClick={() => onMenuSelect('jadwal')}>Jadwal</div>
+            </div>
         </div>
     )
 }

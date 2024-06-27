@@ -4,6 +4,7 @@ import { useState } from "react";
 import SideNavbar from "../component/sidenavbar"
 import KaprodiHome from "../component/kaprodi/home";
 import VerifikasiPage from "../component/kaprodi/verifikasiPage";
+import Jadwal from "../component/kaprodi/jadwal";
 
 interface kaprodiRole {
     role: string;
@@ -12,7 +13,7 @@ interface kaprodiRole {
 const Interface = ({role}: kaprodiRole) => {
 
     const [selectedMenu, setSelectedMenu] = useState('verifikasi');
-    const handleMenuSelect = (menu: 'matakuliah' | 'verifikasi') => {
+    const handleMenuSelect = (menu: 'matakuliah' | 'verifikasi' | 'jadwal') => {
         setSelectedMenu(menu);
     };
 
@@ -27,7 +28,11 @@ const Interface = ({role}: kaprodiRole) => {
                 </section>)}
 
                 { selectedMenu == 'verifikasi' && (<section className="h-full w-full">
-                    <VerifikasiPage programStudi={role} />
+                    <VerifikasiPage programStudi={role} onMenuSelect={handleMenuSelect} />
+                </section>)}
+
+                { selectedMenu == 'jadwal' && (<section className="h-full w-full ">
+                    <Jadwal programStudi={role}  />
                 </section>)}
             </div>
         </div>

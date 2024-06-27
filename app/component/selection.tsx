@@ -20,8 +20,8 @@ const CustomSelect = ({ name, propsvalue, handlevalue }: SelectType) => {
 
     return (
         <div className="flex gap-5">
-            <select className="max-w-60" id="" value={value} onChange={handleChange}>
-                { !value && (<option value="">Pilih {name}</option>)}
+            <select className="max-w-60 bg-neutral-800 text-gray-300"  id="" value={value} onChange={handleChange}>
+                { !value && (<option  value="">Pilih {name}</option>)}
                 {propsvalue.map((prodi: any) => (
                     <option key={prodi} value={prodi}>
                         {prodi}

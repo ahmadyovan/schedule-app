@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import CourseRow from "../table/row";
-import { MataKuliah, Prodi } from "../types";
+import { Courses, MataKuliah, Prodi } from "../types";
 import { addCourse, deleteCourse, fetchCourses, updateCourse } from "../functions";
 import CustomSelect from "../selection";
 import { FaRegTrashCan } from "react-icons/fa6";
@@ -26,19 +26,11 @@ const KaprodiHome = ( {programStudi}: Proditype ) => {
 
     const semesters = Array.from( new Set(Object.keys(courses)));
     const periods = Array.from( new Set(Object.keys(courses[selectedSemester] || {}).sort((a, b) => parseInt(a) - parseInt(b))));
-
-
-    console.log(semesters);
-        
-    console.log(periods);
-    
     // crud functions
 
     useEffect(() => {
 		const unsubscribe = fetchCourses(programStudi, setCourses);
         
-        
-	
 		return unsubscribe;
 	}, [programStudi]);
 
