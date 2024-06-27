@@ -7,20 +7,25 @@ import Logout from "./ButtonLogOut";
 interface HomePageProps {
 	uuid: string
 	email?: any;
-	userRole: string
+	name: string
+  job: string,
+  prodi: string
 }
 
-export default function HomePage({ uuid, email, userRole }: HomePageProps) {
+export default function HomePage({ uuid, email, name, job, prodi }: HomePageProps) {
     const router = useRouter();
-    console.log('role ' + userRole);
+    console.log('role ' + job);
     
-    if (userRole == 'Dosen') router.push('/dosen')
-    if (userRole == 'Kaprodi') router.push('/kaprodi')
+    if (job == 'Dosen') router.push('/dosen')
+    if (job == 'Kaprodi') router.push('/kaprodi')
 
     return (
         <div>
           {uuid}
-          <div>{userRole}</div>
+          <div>{job}</div>
+          <h1>{name}</h1>
+          <h1>{prodi}</h1>
+          <div>{prodi}</div>
           <Logout />
         </div>
     );    
