@@ -188,7 +188,7 @@ const KaprodiHome = ( {programStudi}: Proditype ) => {
                             <div className='w-[5%]'>SKS</div>
                         </div>
                         
-                        <div className='w-[10%]'>SKS</div>
+                        <div className='w-[10%]'></div>
                
 			    	</div> 
 
@@ -200,7 +200,10 @@ const KaprodiHome = ( {programStudi}: Proditype ) => {
                             Object.entries(courses[selectedSemester][selectedPeriod])
                             .sort((a, b) => {const aRowNumber = parseInt(a[0].replace("Row ", "")) || NaN; const bRowNumber = parseInt(b[0].replace("Row ", "")) || NaN; return aRowNumber - bRowNumber;})
                             .map(([row, course]) => {
-                                const rowNumber = parseInt(row.replace("Row ", "")) || NaN;
+                                const rowNumber = parseInt(row.replace("Row ", ""));
+                                if (Number.isNaN(rowNumber)) {
+                                    return null; // Tidak menampilkan baris jika rowNumber adalah NaN
+                                }
                                 return (
                                 <div key={row} className={`flex w-full ${rowNumber % 2 === 0 ?  'bg-neutral-700 ' : 'bg-neutral-600'} px-10 py-2`}>
 			    					<div className="w-[90%] flex gap-5">
@@ -211,17 +214,18 @@ const KaprodiHome = ( {programStudi}: Proditype ) => {
 			    					</div>
                             
                                     <div className="w-[10%] flex justify-around">
-                                        { editMode && (<div>
+                                        { editMode && (
+                                        <div>
                                             {editable && editableRowIndex == row ? (
-                                            <>
+                                            <div className="flex justify-around gap-5 px-2">
                                                 <button onClick={handleSaveClick}>Simpan</button>
                                                 <button onClick={handleCancelClick}>cancel</button>
-                                            </>
+                                            </div>
                                             ) : (
-                                            <>
+                                            <div className="flex justify-around gap-5 px-2">
                                                 <button onClick={() => handleEditClick(row)}>{<FaPencil />}</button>
                                                 <button onClick={() => handleDeleteCourse(row)}>{<FaRegTrashCan />}</button>
-                                            </>
+                                            </div>
                                             )}
                                             </div>
                                         )}
@@ -232,19 +236,25 @@ const KaprodiHome = ( {programStudi}: Proditype ) => {
 			    		</div>						
 			    	</div>
 
-			    	{editMode && editable == false && (
-                        <div className='w-full h-20 flex items-center text-white'>
-                            <div className='flex w-full'>
-
-                                <div className='w-[5%]'></div>
-
-                                <CourseRow style="w-fit" type={"text"} DataInput={true} placeHolder="Kode" rowIndex={null} value={newCourse?.['KODE'] || ''} editable={editable} editableRowIndex={editableRowIndex} onChange={(e) => setNewCourse({ ...newCourse, 'KODE': e.target.value })} />
-                                <CourseRow style="w-fit" type={"text"} DataInput={true} placeHolder="Mata kuliah" rowIndex={null} value={newCourse?.['MATA KULIAH'] || ''} editable={editable} editableRowIndex={editableRowIndex} onChange={(e) => setNewCourse({ ...newCourse, 'MATA KULIAH': e.target.value })} />
-                                <CourseRow style="w-fit" type={"text"} DataInput={true} placeHolder="SKS" rowIndex={null} value={newCourse?.['SKS'] || ''} editable={editable} editableRowIndex={editableRowIndex} onChange={(e) => setNewCourse({ ...newCourse, 'SKS': e.target.value })} />
-                                
-                                <div onClick={handleAddCourse} className='text-white'>Tambah</div>
-                                
+			    	{editMode && (
+                        <div className='w-full py-5 flex items-center text-white'>
+                          {editable == false && (
+                            <div className='flex w-full px-10'>
+                                <div className="w-[90%] flex gap-5">
+                                    <div className='w-[5%]'></div>
+                                    <div className="w-[15%]">
+                                        <CourseRow style="w-full" type={"text"} DataInput={true} placeHolder="Kode" rowIndex={null} value={newCourse?.['KODE'] || ''} editable={editable} editableRowIndex={editableRowIndex} onChange={(e) => setNewCourse({ ...newCourse, 'KODE': e.target.value })} />
+                                    </div>
+                                    <div className="w-[75%]">
+                                        <CourseRow style="w-full" type={"text"} DataInput={true} placeHolder="Mata kuliah" rowIndex={null} value={newCourse?.['MATA KULIAH'] || ''} editable={editable} editableRowIndex={editableRowIndex} onChange={(e) => setNewCourse({ ...newCourse, 'MATA KULIAH': e.target.value })} />
+                                    </div>
+                                    <div className="w-[5%]">
+                                        <CourseRow style="w-fit" type={"text"} DataInput={true} placeHolder="SKS" rowIndex={null} value={newCourse?.['SKS'] || ''} editable={editable} editableRowIndex={editableRowIndex} onChange={(e) => setNewCourse({ ...newCourse, 'SKS': e.target.value })} />
+                                    </div>
+                                </div>
+                                <div className="w-[10%] text-center cursor-pointer" onClick={handleAddCourse}>Tambah</div>
                             </div>
+                          )}  
                         </div>
 			    	)}
 			    </div>

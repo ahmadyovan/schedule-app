@@ -20,14 +20,14 @@ const CourseRow = ({ style, type, placeHolder, rowIndex, value, editable, DataIn
             {!DataInput? (
                 <div>
                 { editable && editableRowIndex == rowIndex? (
-                    <input className={`text-black`} type={type} placeholder={placeHolder} value={value} onChange={onChange} />
+                    <input className={`text-black w-full`} type={type} placeholder={placeHolder} value={value} onChange={onChange} />
                 ):(
                     <div className="w-full">{value}</div>
                 )}
                 </div>
             ): (
-                <div>
-                    <input className={`text-black`} type={type} placeholder={placeHolder} value={value} onChange={onChange} />
+                <div className="w-full">
+                    <input className={`text-black w-full`} type={type} placeholder={placeHolder} value={value} onChange={onChange} />
                 </div>
             )}
         </div> 
