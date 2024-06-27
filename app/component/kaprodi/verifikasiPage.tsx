@@ -17,6 +17,7 @@ enum CourseIndex {
     PERIODE,
     SEMESTER,
     MATA_KULIAH,
+    SKS,
     DOSEN,
     HARI,
     WAKTU
@@ -28,6 +29,7 @@ interface Course {
     [CourseIndex.PERIODE]: string;
     [CourseIndex.SEMESTER]: string;
     [CourseIndex.MATA_KULIAH]: string;
+    [CourseIndex.SKS]: string;
     [CourseIndex.DOSEN]: string;
     [CourseIndex.HARI]: string;
     [CourseIndex.WAKTU]: string;

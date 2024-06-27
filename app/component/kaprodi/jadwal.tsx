@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { onValue } from 'firebase/database';
-import { db, ref, remove } from '@/app/libs/firebase/firebase'; 
+import { db, ref} from '@/app/libs/firebase/firebase'; 
 
 interface FirebaseJadwal {
     [key: string]: JadwalItem;
@@ -20,22 +20,25 @@ interface RegisteredCourse {
     matakuliah: string;
     period: string;
     prodi: string;
+    sks: string;
     semester: string;
     waktu: string;
 }
 
 const dayOrder = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
 
-const CourseTable: React.FC<{ courses: RegisteredCourse[], timeFilter: string[] }> = React.memo(({ courses, timeFilter }) => {
-    console.log(courses);
-    
-    const filteredCourses = useMemo(() => 
+const CourseTable: React.FC<{ courses: RegisteredCourse[], timeRange: 'pagi' | 'malam' }> = React.memo(({ courses, timeRange }) => {
+    const filteredAndSortedCourses = useMemo(() => 
         courses.filter(course => {
-            const [startTime] = course.waktu.split(' - ');
-            return timeFilter.includes(startTime);
-        })
-        .sort((a, b) => dayOrder.indexOf(a.hari) - dayOrder.indexOf(b.hari)),
-        [courses, timeFilter]
+            const startTime = Array.isArray(course.waktu) ? course.waktu[0] : course.waktu.split(' - ')[0];
+            const hour = parseInt(startTime.split(':')[0]);
+            if (timeRange === 'pagi') {
+                return hour >= 8 && hour < 12;
+            } else {
+                return hour >= 18 && hour < 22;
+            }
+        }).sort((a, b) => dayOrder.indexOf(a.hari) - dayOrder.indexOf(b.hari)),
+        [courses, timeRange]
     );
 
     return (
@@ -45,17 +48,24 @@ const CourseTable: React.FC<{ courses: RegisteredCourse[], timeFilter: string[] 
                 <div className="w-[10%]">Kode</div>
                 <div className="w-[30%]">Mata Kuliah</div>
                 <div className="w-[30%]">Dosen</div>
-                <div className="w-[10%]">Waktu</div>
+                <div className="w-[15%]">Waktu</div>
+                <div className="w-[5%]">Sks</div>
             </div>
 
             <div>
-                {filteredCourses.map((course, index) => (
+                {filteredAndSortedCourses.map((course, index) => (
                     <div key={index} className={`flex gap-2 w-full ${index % 2 === 0 ? 'bg-neutral-700' : 'bg-neutral-600'} py-2 px-10`}>
                         <div className="w-[10%]">{course.hari}</div>
                         <div className="w-[10%]">{course.kode}</div>
                         <div className="w-[30%]">{course.matakuliah}</div>
                         <div className="w-[30%]">{course.dosen}</div>
-                        <div className="w-[10%]">{course.waktu}</div>
+                        <div className="w-[15%]">
+                            {Array.isArray(course.waktu) 
+                                ? `${course.waktu[0]} - ${course.waktu[1]}`
+                                : course.waktu
+                            }
+                        </div>
+                        <div className="w-[5%]">{course.sks}</div>
                     </div>
                 ))}
             </div>
@@ -76,11 +86,11 @@ const SemesterSchedule: React.FC<{ courses: RegisteredCourse[], period: string }
             <div className="w-full flex gap-10 overflow-auto">
                 <div className="w-full border-4">
                     <h1 className="text-center uppercase py-2">pagi</h1>
-                    <CourseTable courses={semesterCourses} timeFilter={['08:00', '10:00']} />
+                    <CourseTable courses={semesterCourses} timeRange="pagi" />
                 </div>
                 <div className="w-full border-4">
                     <h1 className="text-center uppercase py-2">malam</h1>
-                    <CourseTable courses={semesterCourses} timeFilter={['18:00', '20:00']} />
+                    <CourseTable courses={semesterCourses} timeRange="malam" />
                 </div>
             </div>
         </div>

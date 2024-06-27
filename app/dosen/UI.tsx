@@ -64,9 +64,9 @@ export default function DosenUI ({uid, namadosen}: emailtype) {
     };
 
     const handleCourseChange = (value: string) => {
-        const [mataKuliah, kode] = value.split(' - ');
+        const [mataKuliah, kode, sks] = value.split(' - ');
         const selectedCourseObj = Object.values((courses[selectedProdi]?.[selectedSemester]?.[selectedPeriod] || {}) as Priode)
-            .find(course => course['MATA KULIAH'] === mataKuliah && course['KODE'] === kode);
+            .find(course => course['MATA KULIAH'] === mataKuliah && course['KODE'] === kode && course['SKS'] === sks);
         setSelectedCourse(selectedCourseObj);
         setSelectedDay('');
         setSelectedTime('');
@@ -103,6 +103,7 @@ export default function DosenUI ({uid, namadosen}: emailtype) {
             dosen: namadosen,
             kode: selectedCourse['KODE'] || '',
             course: selectedCourse['MATA KULIAH'] || '',
+            sks: selectedCourse['SKS'] || '',
             day: selectedDay,
             time: selectedTime
         };

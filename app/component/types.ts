@@ -27,6 +27,7 @@ export interface RegisteredCourse {
     dosen: string;
     dosenID: string;
     kode: string;
+    sks: string;
     period: string;
     prodi: string;
     semester: string;

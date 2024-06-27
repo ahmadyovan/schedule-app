@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const FLASK_SERVER_URL = 'https://yovan.pythonanywhere.com/';
-//const FLASK_SERVER_URL = 'http://127.0.0.1:5000/';
+const FLASK_SERVER_URL = 'http://127.0.0.1:5000/';
 
 export async function POST(request: Request) {
   try {
@@ -27,33 +26,18 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-    try {
-      // Kirim GET request ke /process_schedule
-      const processResponse = await fetch(`${FLASK_SERVER_URL}/process_schedule`, {
-        method: 'GET',
-      });
-  
-      if (!processResponse.ok) {
-        throw new Error('Failed to process schedule');
-      }
-  
-      const processResult = await processResponse.json();
-  
-      // Jika proses berhasil, ambil jadwal yang telah diproses
-      if (processResult.message === 'Semua jadwal telah diproses') {
-        const scheduleResponse = await fetch(`${FLASK_SERVER_URL}/get_schedule`);
-  
-        if (!scheduleResponse.ok) {
-          throw new Error('Failed to get processed schedule');
-        }
-  
-        const scheduleData = await scheduleResponse.json();
-        return NextResponse.json(scheduleData);
-      } else {
-        return NextResponse.json(processResult);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  try {
+    const scheduleResponse = await fetch(`${FLASK_SERVER_URL}/get_schedule`);
+
+    if (!scheduleResponse.ok) {
+      throw new Error('Failed to get processed schedule');
     }
+
+    const scheduleData = await scheduleResponse.json();
+    console.log(scheduleData);
+    return NextResponse.json(scheduleData);
+  } catch (error) {
+    console.error('Error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
 }

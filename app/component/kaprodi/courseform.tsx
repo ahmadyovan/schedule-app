@@ -34,6 +34,7 @@
             dosenID: '',
             dosen: '',
             period: '',
+            sks: '',
             kode: '',
             prodi: programStudi,
             semester: '',
@@ -51,6 +52,7 @@
                             kode: initialCourse['KODE'] || '',
                             period: initialCourse.periode || '',
                             semester: initialCourse.semester || '',
+                            sks: initialCourse['SKS'] || '',
                             prodi: programStudi
                         }
                     });
@@ -91,10 +93,14 @@
                 dosen: course.dosen || '',
                 period: course.period || '',
                 kode: course.kode || '',
+                sks: course.sks || '',
                 prodi: course.prodi || '',
                 semester: course.semester || '',
                 time: course.time
             };
+
+            console.log(submittedCourse);
+            
         
             if (action === 'update' && course.key) {
                 const courseRef = ref(db, `registeredCourses/${course.key}`);
