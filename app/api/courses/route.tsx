@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const FLASK_SERVER_URL = 'https://schedule-app-backend.vercel.app/';
+const FLASK_SERVER_URL = 'Yovan.pythonanywhere.com';
 
 export async function POST(request: Request) {
   try {
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       throw new Error('Flask server responded with an error');
     }
   
-    
+
     const data = await flaskResponse.json();
     return NextResponse.json(data);
   } catch (error) {
