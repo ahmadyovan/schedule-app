@@ -131,6 +131,7 @@
             <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
                 <div className="bg-white p-6 rounded-md text-lg text-neutral-800">
                     <h2 className="text-xl font-bold mb-4">{action === 'update' ? 'Edit' : 'Tambah'} Mata Kuliah</h2>
+                    <div className='text-xl'>{course.course || ''}</div>
                     <div className="mb-4">
                         <label className="block mb-1">Dosen:</label>
                         <select name="dosenID" value={course.dosenID} onChange={handleInputChange} className="w-full p-2 border rounded">

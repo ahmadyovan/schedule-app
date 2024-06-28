@@ -9,7 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@types/file-saver": "^2.0.7",
     "axios": "^1.7.2",
+    "file-save": "^0.2.0",
+    "file-saver": "^2.0.5",
     "firebase": "^10.12.2",
     "next": "14.2.4",
     "next-firebase-auth-edge": "^1.5.3",
@@ -17,6 +20,7 @@
     "react-dom": "^18",
     "react-icons": "^5.2.1",
     "swr": "^2.2.5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.2/xlsx-0.20.2.tgz",
     "zustand": "^4.5.2"
   },
   "devDependencies": {

@@ -260,9 +260,9 @@ const KaprodiHome = ( {programStudi}: Proditype ) => {
 			    </div>
             </div>  
 
-			<div className='w-full flex justify-end'>
+			{/* <div className='w-full flex justify-end'>
                 <button onClick={handlerSendCourse} className='bg-neutral-600 py-5 px-10 rounded-3xl text-white'>Mulai Pendaftaran</button>
-            </div>
+            </div> */}
 
             {showConfirmation && (
                 <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">

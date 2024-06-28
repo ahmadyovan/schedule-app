@@ -164,8 +164,11 @@ const VerifikasiPage: React.FC<VerifikasiPageProps> = ({ programStudi, onMenuSel
 			<div className='w-[8%] cursor-pointer' onClick={() => handleSort('kode')}>
 				Kode {sortConfig?.key === 'kode' && (sortConfig.direction === 'ascending' ? '▲' : '▼')}
 			</div>
-			<div className='w-[25%] cursor-pointer' onClick={() => handleSort('course')}>
+			<div className='w-[20%] cursor-pointer' onClick={() => handleSort('course')}>
 				Mata kuliah {sortConfig?.key === 'course' && (sortConfig.direction === 'ascending' ? '▲' : '▼')}
+			</div>
+			<div className='w-[5%] cursor-pointer' onClick={() => handleSort('sks')}>
+				Sks {sortConfig?.key === 'sks' && (sortConfig.direction === 'ascending' ? '▲' : '▼')}
 			</div>
 			<div className='w-[20%] cursor-pointer' onClick={() => handleSort('dosen')}>
 				Dosen {sortConfig?.key === 'dosen' && (sortConfig.direction === 'ascending' ? '▲' : '▼')}
@@ -215,7 +218,8 @@ const VerifikasiPage: React.FC<VerifikasiPageProps> = ({ programStudi, onMenuSel
 									<div key={index} className={`flex gap-2 w-full ${index % 2 === 0 ?  'bg-neutral-700 ' : 'bg-neutral-600'} py-2 px-10`}>
 										<div className='w-[5%]'>{index + 1}</div>
 										<div className='w-[8%]'>{course.kode}</div>
-										<div className='w-[25%]'>{course.course}</div>
+										<div className='w-[20%]'>{course.course}</div>
+										<div className='w-[5%]'>{course.sks}</div>
 										<div className='w-[20%]'>{course.dosen}</div>
 										<div className='w-[8%]'>{course.semester}</div>
 										<div className='w-[9%]'>{course.period}</div>
