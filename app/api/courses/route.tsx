@@ -15,7 +15,9 @@ export async function POST(request: Request) {
     });
 
     if (!flaskResponse.ok) {
-      throw new Error('Flask server responded with an error');
+      const errorText = await flaskResponse.text();
+      console.error('Flask server error:', errorText);
+      throw new Error(`Flask server responded with an error: ${errorText}`);
     }
   
 
