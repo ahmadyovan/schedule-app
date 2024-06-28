@@ -213,15 +213,6 @@ export const addCourse = async (prodi: string, selectedSemester: string, selecte
 	}
 };
 
-export const AddRegister = async (registered: boolean, ) => {
-	try {
-		const courseRef = ref(db, `RegiteredDosen`);
-		await push(courseRef, {"register": registered});
-	} catch (error) {
-		console.error('Error updating course:', error);
-	}
-};
-
 export const updateCourse = async (prodi: string, selectedSemester: string, selectedPeriod: string, row: string, updatedCourse: MataKuliah): Promise<void> => {
 	try {
 		const courseRef = ref(db, `courses/${prodi}/${selectedSemester}/${selectedPeriod}/${row}`);
@@ -335,3 +326,48 @@ export const getScheduleFromServer = async (): Promise<Schedule> => {
 	}
 	return response.json();
 };
+
+
+export const deleteregistration = async () => {
+	try {
+		const courseRef = ref(db, "registeredUsers");
+		await remove(courseRef);
+	} catch (error) {
+		console.error('Error deleting course:', error);
+	}
+};
+
+export async function fetchRegistrationStatus() {
+	const registeredUsersRef = ref(db, 'registration');
+	const snapshot = await get(registeredUsersRef);
+  
+	if (snapshot.exists()) {
+	  const { startRegistration } = snapshot.val();
+	  return startRegistration === true;
+	} else {
+	  console.log('No data available');
+	  return false;
+	}
+  }
+
+
+  export function fetchRegistrationStatus2(callback: any) {
+	const registeredUsersRef = ref(db, 'registration');
+  
+	const unsubscribe = onValue(registeredUsersRef, (snapshot) => {
+	  if (snapshot.exists()) {
+		const { startRegistration } = snapshot.val();
+		callback(startRegistration === true);
+	  } else {
+		console.log('No data available');
+		callback(false);
+	  }
+	}, (error) => {
+	  console.error('Error fetching data:', error);
+	  callback(false);
+	});
+  
+	return unsubscribe;
+  }
+
+

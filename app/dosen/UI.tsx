@@ -141,7 +141,7 @@ export default function DosenUI ({uid, namadosen}: emailtype) {
     };
 
     return (
-        <div className="h-[90%] w-full bg-green-400 flex justify-center px-36 pb-20 pt-10  text-3xl font-semibold">
+        <div className="h-full w-full bg-green-400 flex justify-center px-36 pb-20 pt-10  text-3xl font-semibold">
             <div className="h-full min-w-[1400px] flex gap-16 flex-col items-center justify-center">
                 <div className='text-gray-100'>
                     <h1>MENDAFTAR MATA KULIAH</h1>

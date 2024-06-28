@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { getUserName, getJob } from "../component/functions";
+import { getUserName, getJob, fetchRegistrationStatus, } from "../component/functions";
 import Navbar from "../component/navbar"
 import { getToken } from "../component/serverfunction";
 import DosenUI from "./UI";
@@ -18,13 +18,15 @@ const DosenHome = async () => {
 	}
 
 	const isRegistered = await checkUserRegistration(tokens.decodedToken.uid);
+	const startRegistration = await fetchRegistrationStatus()
 	
 	return(
 		<div className="h-screen w-screen">
 			<Navbar nama={user || ''} />
-            { !isRegistered? (<DosenUI uid={tokens.decodedToken.uid} namadosen={user || ''}/>
-			) : (
-			<div className="h-[90%] bg-green-400 w-full text-2xl flex justify-center items-center"><h1>ANDA SUDAH MELAKUKAN PENGAJUAN MATA KULIAH</h1></div>)}
+			{startRegistration? <div className="h-[90%] w-full">
+				{ !isRegistered? (<DosenUI uid={tokens.decodedToken.uid} namadosen={user || ''}/>
+				) : ( <div className="h-full bg-green-400 w-full text-2xl flex justify-center items-center"><h1>ANDA SUDAH MELAKUKAN PENGAJUAN MATA KULIAH</h1></div>)}
+			</div>: <div className="h-full bg-green-400 w-full text-2xl flex justify-center items-center">Belum ada pendaftaran</div>}
 		</div>
 		
 	)

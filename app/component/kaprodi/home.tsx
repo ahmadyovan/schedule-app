@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import CourseRow from "../table/row";
 import { Courses, MataKuliah, Prodi } from "../types";
-import { addCourse, deleteCourse, fetchCourses, updateCourse } from "../functions";
+import { addCourse, checkUserRegistration, deleteCourse, deleteregistration, fetchCourses, fetchRegistrationStatus, fetchRegistrationStatus2, updateCourse } from "../functions";
 import CustomSelect from "../selection";
 import { FaRegTrashCan } from "react-icons/fa6";
 import { FaPencil } from "react-icons/fa6";
+import { db, get, onValue, ref, set, update } from "@/app/libs/firebase/firebase";
 
 interface Proditype {
     programStudi: string
@@ -26,13 +27,26 @@ const KaprodiHome = ( {programStudi}: Proditype ) => {
 
     const semesters = Array.from( new Set(Object.keys(courses)));
     const periods = Array.from( new Set(Object.keys(courses[selectedSemester] || {}).sort((a, b) => parseInt(a) - parseInt(b))));
-    // crud functions
+    
+    const [startRegistration, setStartRegistration] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = fetchRegistrationStatus2(setStartRegistration);
+
+    // Membersihkan listener ketika komponen dilepas dari DOM
+    return () => unsubscribe();
+  }, []);
 
     useEffect(() => {
 		const unsubscribe = fetchCourses(programStudi, setCourses);
         
 		return unsubscribe;
 	}, [programStudi]);
+
+    useEffect(() => {
+        
+      }, []);
+      
 
     const handleAddCourse = async () => {
         if (programStudi && newCourse && selectedSemester && selectedPeriod) {
@@ -157,8 +171,24 @@ const KaprodiHome = ( {programStudi}: Proditype ) => {
     };
 
 	const handleConfirmation = async (value: boolean) => {
-
+        
+        if (value) {
+            if(startRegistration == true) setRegistration(false)
+            if(startRegistration == false) {
+                setRegistration(true)
+                deleteregistration()
+            } 
+        }
         setShowConfirmation(false);
+    }
+
+    const setRegistration = async (props: boolean) => {
+        try {
+            const courseRef = ref(db, '/registration');
+            await set(courseRef, {"startRegistration" : props});
+        } catch (error) {
+            console.error('Error updating course:', error);
+        }
     }
     
     return(
@@ -260,19 +290,32 @@ const KaprodiHome = ( {programStudi}: Proditype ) => {
 			    </div>
             </div>  
 
-			{/* <div className='w-full flex justify-end'>
+			<div className='w-full flex justify-end'>
+            {!startRegistration? (
                 <button onClick={handlerSendCourse} className='bg-neutral-600 py-5 px-10 rounded-3xl text-white'>Mulai Pendaftaran</button>
-            </div> */}
+            ):  <button onClick={handlerSendCourse} className='bg-neutral-600 py-5 px-10 rounded-3xl text-white'>Batalkan</button>}
+            </div>
 
             {showConfirmation && (
                 <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-                    <div className="bg-white p-6 rounded-md text-lg text-neutral-800">
-                        <h2 className="text-lg font-bold mb-4">apakah anda ingin memulai pendaftaran</h2>
-                        <div className="flex justify-between gap-2">
-                            <button onClick={() => handleConfirmation(false)} className="px-4 py-2 w-20 bg-neutral-600 text-white rounded-md" >Tidak</button>
-                            <button onClick={() => handleConfirmation(true)} className="px-4 py-2 w-20 bg-green-500 text-white rounded-md"> Ya </button>
+                    {!startRegistration? (
+                        <div className="bg-white p-6 rounded-md text-lg text-neutral-800">
+                            <h2 className="text-lg font-bold mb-4">memulai pendaftaran</h2>
+                            <div className="flex justify-between gap-2">
+                                <button onClick={() => handleConfirmation(false)} className="px-4 py-2 w-20 bg-neutral-600 text-white rounded-md" >Tidak</button>
+                                <button onClick={() => handleConfirmation(true)} className="px-4 py-2 w-20 bg-green-500 text-white rounded-md"> Ya </button>
+                            </div>
                         </div>
-                    </div>
+                    ): (
+                        <div className="bg-white p-6 rounded-md text-lg text-neutral-800">
+                            <h2 className="text-lg font-bold mb-4">batalkan pendaftaran</h2>
+                            <div className="flex justify-between gap-2">
+                                <button onClick={() => handleConfirmation(false)} className="px-4 py-2 w-20 bg-neutral-600 text-white rounded-md" >Tidak</button>
+                                <button onClick={() => handleConfirmation(true)} className="px-4 py-2 w-20 bg-green-500 text-white rounded-md"> Ya </button>
+                            </div>
+                        </div>
+                    )}
+                    
                 </div>
             )}
 
