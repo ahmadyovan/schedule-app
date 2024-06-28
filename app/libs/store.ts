@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist, PersistStorage } from 'zustand/middleware';
 
 interface CourseData {
+    sks: string;
     prodi: string;
     semester: string;
     period: string;

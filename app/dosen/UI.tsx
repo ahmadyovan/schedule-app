@@ -35,12 +35,12 @@ export default function DosenUI ({uid, namadosen}: emailtype) {
     const prodis = Object.keys(courses);
     const semesters = selectedProdi ? Object.keys((courses[selectedProdi] || {}) as Prodi) : [];
     const periods = selectedSemester ? Object.keys((courses[selectedProdi]?.[selectedSemester] || {}) as Semester) : [];
-    const courseList = selectedPeriod ? Object.values((courses[selectedProdi]?.[selectedSemester]?.[selectedPeriod] || {}) as Priode).map(course => course['MATA KULIAH']): [];
+    const courseList = selectedPeriod ? Object.values((courses[selectedProdi]?.[selectedSemester]?.[selectedPeriod] || {}) as Priode) : [];
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jum at'];
     const times = ['Pagi', 'Sore'];
 
-    const handleProdiChange = (value: string) => {
-        setSelectedProdi(value);
+    const handleProdiChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setSelectedProdi(e.target.value);
         setSelectedSemester('');
         setSelectedPeriod('');
         setSelectedCourse(undefined);
@@ -48,37 +48,35 @@ export default function DosenUI ({uid, namadosen}: emailtype) {
         setSelectedTime('');
     };
 
-    const handleSemesterChange = (value: string) => {
-        setSelectedSemester(value);
+    const handleSemesterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setSelectedSemester(e.target.value);
         setSelectedPeriod('');
         setSelectedCourse(undefined);
         setSelectedDay('');
         setSelectedTime('');
     };
 
-    const handlePeriodChange = (value: string) => {
-        setSelectedPeriod(value);
-        setSelectedCourse({});
+    const handlePeriodChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setSelectedPeriod(e.target.value);
+        setSelectedCourse(undefined);
         setSelectedDay('');
         setSelectedTime('');
     };
 
-    const handleCourseChange = (value: string) => {
-        const [mataKuliah, kode, sks] = value.split(' - ');
-        const selectedCourseObj = Object.values((courses[selectedProdi]?.[selectedSemester]?.[selectedPeriod] || {}) as Priode)
-            .find(course => course['MATA KULIAH'] === mataKuliah && course['KODE'] === kode && course['SKS'] === sks);
+    const handleCourseChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const selectedCourseObj = courseList.find(course => course['MATA KULIAH'] === e.target.value);
         setSelectedCourse(selectedCourseObj);
         setSelectedDay('');
         setSelectedTime('');
     };
 
-    const handleDayChange = (value: string) => {
-        setSelectedDay(value);
+    const handleDayChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setSelectedDay(e.target.value);
         setSelectedTime('');
     };
 
-    const handleTimeChange = (value: string) => {
-        setSelectedTime(value);
+    const handleTimeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setSelectedTime(e.target.value);
     };
 
     const handleAddCourse = () => {
@@ -151,15 +149,69 @@ export default function DosenUI ({uid, namadosen}: emailtype) {
                 </div>
 
                 <div className="h-full w-full flex flex-col items-center gap-5 text-2xl">
-                    <div className="flex gap-8">
-                        <CustomSelect name="Prodi" propsvalue={prodis} handlevalue={handleProdiChange} />
-                        <CustomSelect name="Semester" propsvalue={semesters} handlevalue={handleSemesterChange} />
-                        <CustomSelect name="Periode" propsvalue={periods} handlevalue={handlePeriodChange} />
-                        <CustomSelect name="Mata kuliah" propsvalue={courseList} handlevalue={handleCourseChange} />
-                        <CustomSelect name="Hari" propsvalue={days} handlevalue={handleDayChange} />
-                        <CustomSelect name="Waktu" propsvalue={times} handlevalue={handleTimeChange} />
-                        <div className="cursor-pointer" onClick={() => handleAddCourse()}>tambahkan</div>
+                <div className="flex gap-8">
+                    <div className='flex gap-5 '>
+                        <select className="w-60 py-1 px-2 bg-neutral-600 text-white" id="prodi" value={selectedProdi} onChange={handleProdiChange}>
+                            <option value="">Prodi</option>
+                            {prodis.map(prodi => (
+                                <option key={prodi} value={prodi}>
+                                    {prodi}
+                                </option>
+                            ))}
+                        </select>
                     </div>
+                    <div className='flex gap-5'>
+                        <select className="w-44 py-1 px-2 bg-neutral-600 text-white" id="semester" value={selectedSemester} onChange={handleSemesterChange}>
+                            <option value="">Semester</option>
+                            {semesters.map(semester => (
+                                <option key={semester} value={semester}>
+                                    {semester}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className='flex gap-5'>
+                        <select className="w-44 py-1 px-2 bg-neutral-600 text-white" id="period" value={selectedPeriod} onChange={handlePeriodChange}>
+                            <option value="">Periode</option>
+                            {periods.map(period => (
+                                <option key={period} value={period}>
+                                    {period}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className='flex gap-5'>
+                        <select className="w-64 py-1 px-2 bg-neutral-600 text-white" id="course" value={selectedCourse?.['MATA KULIAH'] || ''} onChange={handleCourseChange}>
+                            <option value="">Matakuliah</option>
+                            {courseList.map((course) => (
+                                <option key={course.KODE} value={course['MATA KULIAH']}>
+                                    {course['MATA KULIAH']}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className='flex gap-5'>
+                        <select className="w-44 py-1 px-2 bg-neutral-600 text-white" id="day" value={selectedDay} onChange={handleDayChange}>
+                            <option value="">Hari</option>
+                            {days.map((day) => (
+                                <option key={day} value={day}>
+                                    {day}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className='flex gap-5'>
+                        <select className="w-48 py-1 px-2 bg-neutral-600 text-white" id="time" value={selectedTime} onChange={handleTimeChange}>
+                            <option value="">Waktu</option>
+                            {times.map((time) => (
+                                <option key={time} value={time}>
+                                    {time}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="cursor-pointer" onClick={handleAddCourse}>tambahkan</div>
+                </div>
                     <div className="w-full h-full overflow-hidden border-4 flex flex-col border-green-600  text-gray-300 bg-neutral-800 text-xl">
                         <div className='flex gap-5 px-10 bg-neutral-800 py-4'>
                             <div className='w-[16%]'>prodi</div>
