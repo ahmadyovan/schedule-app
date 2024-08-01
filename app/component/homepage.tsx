@@ -2,8 +2,6 @@
 
 import { useRouter } from "next/navigation";
 
-import Logout from "./ButtonLogOut";
-
 interface HomePageProps {
 	uuid: string
 	email?: any;
@@ -27,7 +25,6 @@ export default function HomePage({ uuid, email, name, job, prodi }: HomePageProp
           <h1>{name}</h1>
           <h1>{prodi}</h1>
           <div>{prodi}</div>
-          <Logout />
         </div>
     );    
 }
