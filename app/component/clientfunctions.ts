@@ -1,6 +1,7 @@
 import { createClientSupabase } from "@/utils/supabase/client"
 import { Database } from '@/app/component/types/supabase';
 import { RealtimeChannel } from "@supabase/supabase-js";
+import { getAuthUser, getUserData } from "./serverfunction";
 
 const supabase = createClientSupabase();
 
@@ -11,7 +12,7 @@ interface OptimizedSchedule {
     Schedule_Sks: number;
     Schedule_Prodi: number;
     Schedule_Semester: number;
-    Schedule_Dosen_num: string;
+    Schedule_Dosen_num: number;
     Schedule_Hari: string;
     Schedule_Waktu: string;
 }
@@ -121,12 +122,16 @@ export interface Course {
   }
   
   export const addCourse = async (newCourse: Omit<Course, 'course_id'>) => {
+    console.log('Adding new course:', newCourse);
     const { data, error } = await supabase
       .from('course')
       .insert(newCourse)
       .select()
   
-    if (error) throw error
+    if (error) {
+      console.error('Error adding course:', error);
+      throw error;
+    }
     return data[0] as Course
   }
   
@@ -177,8 +182,6 @@ export interface Course {
 
 
 export const insertSchedule = async (schedule: OptimizedSchedule) => {
-  
-  
     const { data, error } = await supabase
         .from('schedule')
         .insert([
@@ -214,3 +217,35 @@ export const deleteAllData = async (tableName: string) => {
       console.log('All data deleted:', data);
   }
 };
+
+// export const getUser = async () => {
+
+//   const { user, error: authError } = await getAuthUser();
+
+//   if (!user) {
+//     console.log('No authenticated user');
+//     // Handle kasus tidak ada user yang terautentikasi
+//     return;
+//   }
+
+//   const { data: userData, error: userDataError } = await getUserData(user.id);
+
+//   if (userData) {
+//     console.log('User data:', userData);
+//     return userData
+//   } else {
+//     console.log('No user data found');
+//     // Handle kasus tidak ada data user
+//   }
+  
+// }
+
+// export default async function UserDataFetcher() {
+//   const userData = await getUser()
+  
+//   if (!userData) {
+//     return 
+//   }
+
+//   return userData
+// }

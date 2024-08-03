@@ -45,16 +45,16 @@ const EditCoursePopup = ({ courseData, onSave, onCancel }: EditPopup) => {
                 </div>
                 <div className="w-full bg-neutral-600 text-white rounded" >
                     <h1>perbarui kode mata kuliah</h1>
-                    <input name="course_kode" value={course.course_kode} onChange={handleChange} placeholder="Kode" />
+                    <input className="bg-neutral-600 text-white rounded" name="course_kode" value={course.course_kode} onChange={handleChange} placeholder="Kode" />
                 </div>
                 <div className="w-full bg-neutral-600 text-white rounded">
                     <h1>perbarui nama mata kuliah</h1>
-                    <input name="course_name" value={course.course_name} onChange={handleChange} placeholder="Nama" />
+                    <input className="bg-neutral-600 text-white rounded" name="course_name" value={course.course_name} onChange={handleChange} placeholder="Nama" />
                 </div>
                 
                 <div className="w-ful bg-neutral-600 text-white rounded">
                     <h1>perbarui sks mata kuliah</h1>
-                    <input name="course_sks" type="number" value={course.course_sks} onChange={handleChange} placeholder="SKS" />
+                    <input className="bg-neutral-600 text-white rounded" name="course_sks" type="number" value={course.course_sks} onChange={handleChange} placeholder="SKS" />
                 </div>
                 
                 <div className="flex justify-evenly gap-2 mt-4">

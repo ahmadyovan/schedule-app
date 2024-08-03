@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createClientSupabase } from '@/utils/supabase/client';
-import { Database } from '../types/supabase';
+
 import { User } from '@supabase/supabase-js';
 
 type Prodi = {

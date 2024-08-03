@@ -19,7 +19,8 @@ interface Waktu {
     kelas: string
 }
 
-const Interface = () => {
+
+const Interface = (user: any) => {
     const [prodis, setProdis] = useState<Tables<'prodi'>[]>([])
     const [semesters, setSemesters] = useState<string[]>([])
     const [courses, setCourses] = useState<Tables<'course'>[]>([])
@@ -30,11 +31,50 @@ const Interface = () => {
     const [selectedTime, setSelectedTime] = useState<Waktu>()
     const [selectedDays, setSelectedDays] = useState<string[]>([])
     const [formAdd, setFormAdd] = useState<boolean>(false)
-    const { user, userData, loading, error } = useUser();
+
+    const [registrationStatus, setRegistrationStatus] = useState<any[]>([]);
+    const [prodiSemesterMap, setProdiSemesterMap] = useState<{ [key: number]: string[] }>({});
     
 
     const supabase = createClientSupabase()
     const { registeredCourses, addCourse, removeCourse, clearCourses } = useCourseStore()
+
+    useEffect(() => {
+        const fetchData = async () => {
+          const { data, error } = await supabase
+            .from('pendaftaran') // Ganti 'table_name' dengan nama tabel Anda
+            .select('*');
+    
+          if (error) {
+            console.error(error);
+          } else {
+            setRegistrationStatus(data);
+    
+            // Membuat set untuk prodi dan semester yang terdaftar
+            const prodiSet = new Set<number>();
+            const semesterSet = new Set<string>();
+    
+            data.forEach((item: any) => {
+              prodiSet.add(item.prodi);
+              semesterSet.add(item.semester);
+            });
+    
+            // Mengambil prodi yang terdaftar
+            const prodiData = await supabase.from('prodi').select('*');
+            if (!prodiData.error) {
+              const registeredProdis = prodiData.data.filter((prodi: any) => prodiSet.has(prodi.prodi_id));
+              setProdis(registeredProdis);
+            } else {
+              console.error('Error fetching prodis:', prodiData.error);
+            }
+    
+            // Mengubah semesterSet menjadi array dan menyimpannya
+            setSemesters(Array.from(semesterSet));
+          }
+        };
+    
+        fetchData();
+      }, []);
 
     useEffect(() => {
         fetchProdis()
@@ -66,45 +106,56 @@ const Interface = () => {
     }
 
     const fetchSemesters = async () => {
-        const { data, error } = await supabase
+        if (!selectedProdi) return;
+    
+        // Ambil data semester dari tabel 'course' sesuai dengan 'selectedProdi'
+        const { data: courseData, error: courseError } = await supabase
             .from('course')
             .select('course_semester')
             .eq('course_prodi', selectedProdi);
-
-            const dataSemester = data
-        
-        if (error) {
-            console.error('Error fetching semesters:', error)
-        } else {
-            if (!dataSemester) return
-
-            const { data, error } = await supabase
-            .from('pendaftaran')
-            .select('semester')
-            .eq('id', 1)
-
-            if (!data) return
-
-            const filterType = data[0].semester;
-
-            const uniqueSemesters = Array.from(new Set(dataSemester
-                .map(item => item.course_semester)
-                .filter((semester): semester is string => semester != null)
-            ))
     
-            const filteredSemesters = uniqueSemesters.filter(semester => {
-                const semesterNumber = parseInt(semester.split(' ')[1]);
-                if (filterType === 'genap') {
-                    return semesterNumber % 2 === 0;
-                } else if (filterType === 'gasal') {
-                    return semesterNumber % 2 !== 0;
-                }
-                return true; // 'all' case
-            });
-    
-            setSemesters(filteredSemesters);
+        if (courseError) {
+            console.error('Error fetching semesters from course table:', courseError);
+            return;
         }
-    }
+    
+        // Ambil data semester dari tabel 'pendaftaran'
+        const { data: registrationData, error: registrationError } = await supabase
+            .from('pendaftaran')
+            .select('semester');
+    
+        if (registrationError) {
+            console.error('Error fetching semesters from pendaftaran table:', registrationError);
+            return;
+        }
+    
+        if (!courseData || !registrationData) return;
+    
+        // Ambil jenis semester dari data registrationStatus
+        const registrationSemesters = new Set(
+            registrationData.map((item) => item.semester)
+        );
+    
+        // Ambil daftar semester yang tersedia
+        const availableSemesters = Array.from(new Set(
+            courseData.map((item) => item.course_semester).filter(Boolean)
+        ));
+    
+        // Filter semester sesuai dengan jenis semester yang terdaftar
+        const filteredSemesters = availableSemesters.filter((semester) => {
+            const semesterNumber = parseInt(semester.split(' ')[1], 10);
+            const isGenap = registrationSemesters.has('genap');
+            const isGanjil = registrationSemesters.has('ganjil');
+    
+            if (isGenap && semesterNumber % 2 === 0) return true;
+            if (isGanjil && semesterNumber % 2 !== 0) return true;
+            if (!isGenap && !isGanjil) return true; // Tampilkan semua jika tidak ada filter
+    
+            return false;
+        });
+    
+        setSemesters(filteredSemesters);
+    };
 
 
     const fetchCourses = async () => {
@@ -157,18 +208,29 @@ const Interface = () => {
       const Days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
 
         const handleSubmit = async () => {                 
-            if (userData) {
+            if (user) {
+                
+                const userID = user.user.user_id
                 if (registeredCourses.length > 0) {
                     const availableDays = Days.filter(day => !selectedDays.includes(day));
                     for (const course of registeredCourses) {
                         const { error } = await supabase.from('jadwal').insert({
                             jadwal_course_id: course.course_id,
-                            jadwal_dosen_id: userData.user_id,
+                            jadwal_dosen_id: userID,
                             jadwal_hari: availableDays,
                             jadwal_waktu: course.course_waktu,
                             class: course.course_kelas
                         })
                         if (error) console.error('Error inserting jadwal:', error)
+                    }
+
+                    const { error: registeredDosenError } = await supabase.from('registereddosen').insert({
+                        dosenID: userID
+                    });
+        
+                    if (registeredDosenError) {
+                        console.error('Error inserting to registereddosen:', registeredDosenError);
+                        return; // Exit if there's an error inserting registereddosen
                     }
                     alert('Courses registered successfully!')
                 
@@ -198,29 +260,29 @@ const Interface = () => {
     return (
         <div className='h-full w-full flex justify-center px-28'>
             <div className="h-full min-w-[1444px] w-full  flex justify-center flex-col items-center gap-10 pb-20">
-                <h2 className="text-2xl font-bold">Buat Jadwal Kuliah</h2>
+                <h2 className="text-2xl font-bold">pengajuan Jadwal Kuliah</h2>
                 <div className='w-full min-h-[400px] h-[70%] flex gap-10'>
                     <div className='h-full w-full flex flex-col bg-neutral-800'>
                         <div className='flex items-center gap-5 bg-neutral-700 h-[16%] px-10'>
                             <div className='w-[20%]'>
-                                <select value={selectedProdi || ''} onChange={(e) => setSelectedProdi(Number(e.target.value))} className='bg-neutral-800 w-full py-2 px-1'>
-                                    <option value="">Select Prodi</option>
-                                    {prodis.map((prodi) => (
-                                        <option key={prodi.prodi_id} value={prodi.prodi_id}>
-                                        {prodi.prodi_name}
-                                        </option>
-                                    ))}
-                                </select>
+                            <select value={selectedProdi || ''} onChange={(e) => setSelectedProdi(Number(e.target.value))} className='bg-neutral-800 w-full py-2 px-1'>
+                              <option value="">Select Prodi</option>
+                              {prodis.map((prodi) => (
+                                <option key={prodi.prodi_id} value={prodi.prodi_id}>
+                                  {prodi.prodi_name}
+                                </option>
+                              ))}
+                            </select>
                             </div>
                             <div className='w-[fit]'>
-                                <select value={selectedSemester || ''} onChange={(e) => setSelectedSemester(e.target.value)} className='bg-neutral-800 py-2 px-1'>
-                                    <option value="">Select Semester</option>
-                                    {semesters.map((semester) => (
-                                        <option key={semester} value={semester}>
-                                        {semester}
-                                        </option>
-                                    ))}
-                                </select>
+                            <select value={selectedSemester || ''} onChange={(e) => setSelectedSemester(e.target.value)} className='bg-neutral-800 py-2 px-1'>
+                                <option value="">Select Semester</option>
+                                {semesters.map((semester) => (
+                                    <option key={semester} value={semester}>
+                                    {semester}
+                                    </option>
+                                ))}
+                            </select>
                             </div>
                             <div className='w-[20%]'>
                                 <select value={selectedCourse || ''} onChange={(e) => setSelectedCourse(Number(e.target.value))} className='bg-neutral-800 w-full py-2 px-1'>

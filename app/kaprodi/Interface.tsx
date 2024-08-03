@@ -7,8 +7,9 @@ import VerifikasiPage from "@/app/component/kaprodi/verifikasiPage";
 import Jadwal from "@/app/component/kaprodi/jadwal";
 import Kelas from "@/app/component/kaprodi/kelas";
 
-const Interface = () => {
-
+const Interface = (UserData: any) => {
+    console.log("eeeeeeeeeee", UserData);
+    
     const [selectedMenu, setSelectedMenu] = useState('matakuliah');
     const handleMenuSelect = (menu: 'matakuliah' | 'verifikasi' | 'jadwal' | 'kelas') => {
         setSelectedMenu(menu);
@@ -21,7 +22,7 @@ const Interface = () => {
             </div>
             <div className="h-full w-full border-4">
                 { selectedMenu == 'matakuliah' && (<section className="h-full w-full">
-                    <KaprodiHome />
+                    <KaprodiHome user={UserData} />
                 </section>)}
 
                 { selectedMenu == 'verifikasi' && (<section className="h-full w-full">

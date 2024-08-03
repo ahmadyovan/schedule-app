@@ -3,10 +3,10 @@
 import { createClientSupabase } from "@/utils/supabase/client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deleteAllData, insertSchedule } from "../component/clientfunctions";
-import { Console } from "console";
+import { PARTICLE_SWARM_OPTIMIZATION, Schedules, Parameter, OptimizedSchedule } from '@/app/component/pso';
 
 interface Prodi {
-    prodi_id: string
+    prodi_id: any
     prodi_name: string
 }
 
@@ -37,23 +37,6 @@ interface Jadwal {
     user: User;
 }
 
-interface OptimizedSchedule {
-    Schedule_Jadwal_id: number
-    Schedule_Sks: number;
-    Schedule_Prodi: number;
-    Schedule_Semester: number;
-    Schedule_Dosen_num: number;
-    Schedule_Hari: string;
-    Schedule_Waktu: string;
-}
-
-interface Parameter {
-    num_iteration: number;
-    num_particle: number;
-    w: number;
-    c1: number;
-    c2: number;
-}
 
 interface Result {
     message: string
@@ -64,11 +47,10 @@ const Interface = () => {
     const supabase = createClientSupabase();
     const [course, setCourse] = useState<Jadwal[]>();
     const [schedule, setSchedule] = useState<OptimizedSchedule[]>();
-    const [socket, setSocket] = useState<WebSocket | null>(null);
     const [parameter, setParameter] = useState<Parameter>({
         num_iteration: 100,
         num_particle: 2000,
-        w: 0.7,
+        W: 0.7,
         c1: 1.4,
         c2: 1.5,
     });
@@ -88,56 +70,6 @@ const Interface = () => {
 
     useEffect(() => {
         fetchJadwal();
-    }, []);
-
-    useEffect(() => {
-        const connectWebSocket = () => {
-            const newSocket = new WebSocket('ws://localhost:8080/ws');
-
-            newSocket.onopen = () => {
-                console.log('WebSocket connection established');
-            };
-
-            newSocket.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                setIsProcess(true)
-                
-        
-                if (data.type === "timeUpdate") {
-                    setElapsedTime(data.data.elapsedTime);
-                    setFormattedTime(convertSeconds(elapsedTime));
-                } else if (data.type === 'stage') {
-                    setCurrentStage(data.data.stage);
-                } else if (data.type === 'gBestFitness') {
-                    setBestFitness(data.data.gBestFitness);
-                } else if (data.type === 'finalFitness') {
-                    console.log(data);
-                } else if (data.type === 'result') 
-                    {
-                    setOptimizationResult(data.data);
-                    handleOptimizationComplete(data.data);
-                }
-            };
-
-            newSocket.onclose = (event) => {
-                console.log('WebSocket connection closed', event.reason);
-                setTimeout(connectWebSocket, 5000); // Attempt to reconnect after 5 seconds
-            };
-
-            newSocket.onerror = (error) => {
-                console.error('WebSocket error:', error);
-            };
-
-            setSocket(newSocket);
-        };
-
-        connectWebSocket();
-
-        return () => {
-            if (socket) {
-                socket.close();
-            }
-        };
     }, []);
 
     const fetchJadwal = useCallback(async () => {
@@ -164,9 +96,7 @@ const Interface = () => {
     }, [supabase]);
 
     function stopOptimization() {
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send("STOP");
-        }
+       
     }
 
     useEffect(() => {
@@ -175,54 +105,72 @@ const Interface = () => {
         }
       }, [elapsedTime]);
 
-    const handleOptimize = useCallback(() => {
-        if (!course || !parameter || !socket) return;
-        setBestFitness(0)
-        setCurrentStage('')
-        setElapsedTime(0)
-        setFitness(0)
-        setFormattedTime('')
-        setIteration(0)
-        setNumIteration(parameter.num_iteration)
-        setIsProcess(false);
+      const handleOptimize = useCallback(() => {
+        if (!course || !parameter) return;
+        console.log("fffffffffffff",course);
         
-        const requestBody = {
-            schedule: course.map(s => ({
-                schedule_jadwal_id: s.jadwal_id,
-                schedule_sks: s.course.course_sks,
-                schedule_prodi: s.course.course_prodi,
-                schedule_semester: parseInt(s.course.course_semester.replace(/\D/g, ""), 10),
-                schedule_dosen_num: s.user.user_num,
-                schedule_hari: s.jadwal_hari.toString().replace(/[\[\]]/g, ''),
-                schedule_waktu: s.jadwal_waktu,
-                class: s.class
-            })),
-            parameter: {
-                num_iteration: parseFloat(parameter.num_iteration as unknown as string),
-                num_particle: parseFloat(parameter.num_particle as unknown as string),
-                w: parseFloat(parameter.w as unknown as string),
-                c1: parseFloat(parameter.c1 as unknown  as string),
-                c2: parseFloat(parameter.c2 as unknown  as string)
-            },
+        const schedules: Schedules[] = course.map(s => ({
+            schedule_jadwal_id: s.jadwal_id,
+            schedule_sks: s.course.course_sks,
+            schedule_prodi: s.course.course_prodi.prodi_id ,
+            schedule_semester: parseInt(s.course.course_semester.replace(/\D/g, ""), 10),
+            schedule_dosen_num: s.user.user_num,
+            schedule_hari: s.jadwal_hari.toString().replace(/[\[\]]/g, ''),
+            schedule_waktu: s.jadwal_waktu,
+            schedule_class: s.class
+        }));
+    
+        const psoParams: Parameter = {
+            num_iteration: parameter.num_iteration,
+            num_particle: parameter.num_particle,
+            W: parameter.W,
+            c1: parameter.c1,
+            c2: parameter.c2
         };
-
-        socket.send(JSON.stringify(requestBody));
-        console.log(requestBody);
+    
+        setIsProcess(true);
+        setCurrentStage("Memulai optimasi");
+    
+        // Jalankan PSO dalam worker untuk mencegah UI freezing
+        const worker = new Worker(new URL('@/app/component/psoworker.ts', import.meta.url));
+        worker.postMessage({ schedules, parameter: psoParams });
+        console.log(schedules);
         
+        worker.onmessage = (event) => {
+            const { type, data } = event.data;
+            switch (type) {
+                case 'progress':
+                    setCurrentStage(data.stage);
+                    setBestFitness(data.bestFitness);
+                    setIteration(data.iteration);
+                    break;
+                case 'result':
+                    handleOptimizationComplete(data);
+                    setIsProcess(false);
+                    worker.terminate();
+                    break;
+            }
+        };
+    
         setFormParameter(false);
-    }, [course, parameter, socket]);
+    }, [course, parameter]);
 
     const handleOptimizationComplete = useCallback(async (result: Result) => {
         await deleteAllData('schedule');
+
+        console.log("optima");
         
-        for (const schedule of result.schedule) {
-            try {
-                await insertSchedule(schedule);
-                console.log('berhasil menyimpan jadwal');
-            } catch (error) {
-                console.error('Error inserting schedule:', error);
-            }
-        }
+        
+        // for (const schedule of result.schedule) {
+        //     try {
+        //         await  (schedule);
+        //         console.log('berhasil menyimpan jadwal');
+        //     } catch (error) {
+        //         console.error('Error inserting schedule:', error);
+        //     }
+        // }
+
+        console.log("data from ",result);
 
         fetchSchedule();
     }, [fetchSchedule]);
@@ -245,10 +193,12 @@ const Interface = () => {
         <div className='h-full w-full bg-neutral-500 flex flex-col justify-center items-center'>
             <div className="flex justify-center items-center flex-col gap-10">
                 {isProcess && (<div className="flex justify-center items-center flex-col" id="metrics">
+                    <div className="flex justify-center items-center flex-col" id="metrics">
                     <div>Jumlah partikel yang di uji : {parameter.num_particle}</div>
-                    <div>Tahap {currentStage}</div>
-                    <p>Waktu: <span id="elapsedTime">{formattedTime}</span></p>
-                    <p>Nilai Fitnes Dari Posisi terbaik &#40;gBest&#41; : <span id="bestFitness">{bestFitness}</span></p>
+                    <div>Tahap: {currentStage}</div>
+                    <div>Iterasi: {iteration} / {parameter.num_iteration}</div>
+                    <p>Nilai Fitnes Dari Posisi terbaik (gBest): <span id="bestFitness">{bestFitness}</span></p>
+            </div>
                 </div>)}
                 <div className="flex flex-col gap-5">
                     <button onClick={() => setFormParameter(true)}>OPTIMALISASI</button>
@@ -284,8 +234,8 @@ const Interface = () => {
                                 className="bg-neutral-600 py-2 px-1 mt-2" 
                                 type="number"
                                 step="0.1" // Menambahkan step untuk memungkinkan input desimal
-                                value={parameter.w || ''}
-                                onChange={(e) => handleInputChange(e, 'w')}
+                                value={parameter.W || ''}
+                                onChange={(e) => handleInputChange(e, 'W')}
                             />
                         </div>
                         <div>

@@ -13,7 +13,7 @@ export const getAuthUser = async () => {
     return { user, error: null };
 };
 
-export const getUserData = async (userId: string) => {
+export const getUserData = async (userId: string | undefined) => {
     const { data, error } = await supabase
       .from('user')
       .select('*')
@@ -27,3 +27,4 @@ export const getUserData = async (userId: string) => {
     
     return { data, error: null };
 };      
+
