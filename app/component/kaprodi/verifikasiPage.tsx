@@ -255,7 +255,7 @@
 								Pengajuan
 							</button>
 							<button className={`px-4 py-2 ${activeTab === 'jadwal kosong' ? 'bg-blue-500 text-white' : 'bg-blue-400'}`} onClick={() => setActiveTab('jadwal kosong')}>
-								Jadwal Kosong
+								tambah jadwal
 							</button>
 						</div>
 						<div>
