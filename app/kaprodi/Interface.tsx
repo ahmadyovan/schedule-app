@@ -8,7 +8,7 @@ import Jadwal from "@/app/component/kaprodi/jadwal";
 import Kelas from "@/app/component/kaprodi/kelas";
 
 const Interface = (UserData: any) => {
-    console.log("eeeeeeeeeee", UserData);
+    console.log("", UserData);
     
     const [selectedMenu, setSelectedMenu] = useState('matakuliah');
     const handleMenuSelect = (menu: 'matakuliah' | 'verifikasi' | 'jadwal' | 'kelas') => {

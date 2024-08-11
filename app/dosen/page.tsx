@@ -39,6 +39,8 @@ const DosenHome = async () => {
         .eq('dosenID', user.user_id);
 
 	var isRegistered
+	console.log(registeredData);
+	
 	if (registeredData) {
 		isRegistered = registeredData?.length > 0;
 	}

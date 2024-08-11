@@ -46,8 +46,7 @@ const formatDateTimeLocal = (date: Date): string => {
   };
 
 const CoursesTable = (user: user1) => {
-	const supabase = createClientSupabase()
-	const {userData} = useUser()	
+	
 	const [userdatadata, setuserdatadata] = useState<User>()
 	const [prodi, setProdi] = useState<number>()
     const [courses, setCourses] = useState<Course[]>([]);
@@ -70,18 +69,32 @@ const CoursesTable = (user: user1) => {
 
 	const [isdelete, setIsdelete] = useState<boolean>(false)
 	
+	// console.log(user);
+	const supabase = createClientSupabase()
+	  const {userData} = useUser()	
 
-	useEffect(() => {
-		if (!user.user.userData.data) return
-		setuserdatadata(user.user.userData.data)
-		console.log(userdatadata);
-		console.log(user);
+	  const loadCourses = useCallback(async () => {
+		if (!userData) return;
+		console.log();
 		
-		
-	}, []);
+		setProdi(userData.user_prodi.prodi_id)
+
+		const { data, error } = await supabase
+			.from('course')
+			.select('*')
+			.eq('course_prodi', userData.user_prodi.prodi_id);
+
+		if (data) {
+		  console.log(data);
+		  
+			setCourses(data);
+		}
+		if (error) console.error('Error fetching course:', error);
+	}, [userData, supabase]);
 	
-    const [newCourse, setNewCourse] = useState<Omit<Course, 'course_id'>>({ course_kode: '', course_name: '', course_sks: 0, course_semester: '', course_prodi: user.user.userData.data.user_prodi });
-	const [editCourse, setEditCourse] = useState<Omit<Course, 'course_id'>>({ course_kode: '', course_name: '', course_sks: 0, course_semester: '', course_prodi: user.user.userData.data.user_prodi });
+	
+    const [newCourse, setNewCourse] = useState<Omit<Course, 'course_id'>>({ course_kode: '', course_name: '', course_sks: 0, course_semester: '', course_prodi: userData?.user_prodi.prodi_id });
+	const [editCourse, setEditCourse] = useState<Omit<Course, 'course_id'>>({ course_kode: '', course_name: '', course_sks: 0, course_semester: '', course_prodi: userData?.user_prodi.prodi_id });
   	const [registrationData, setRegistrationData] = useState({
 		prodi: userData?.user_prodi.prodi_id,
 		semester: '',
@@ -90,31 +103,9 @@ const CoursesTable = (user: user1) => {
 
   	});
 
-
-
-	
-
-	
-	
-
-	const loadCourses = useCallback(async () => {
-        if (!userdatadata) return;
-
-        const { data, error } = await supabase
-            .from('course')
-            .select('*')
-            .eq('course_prodi', userdatadata.user_prodi);
-
-        if (data) {
-          	console.log(data);
-          
-            setCourses(data);
-			
-        }
-        if (error) console.error('Error fetching course:', error);
-    }, [userData, supabase]);
-
-	
+	  
+  
+	  
   
     useEffect(() => {
         loadCourses();
@@ -214,12 +205,18 @@ const CoursesTable = (user: user1) => {
     }
 
     const handleAddCourse = async () => {
-		console.log("prodi",userdatadata?.user_prodi);
+		console.log("prodi",prodi);
 		
-		if (userdatadata && userdatadata.user_prodi) {
-			try {			
-				await addCourse(newCourse);
-				setNewCourse({ course_kode: '', course_name: '', course_sks: 0, course_semester: '', course_prodi: userdatadata.user_prodi });
+		if (prodi) {
+			try {
+				// Buat salinan newCourse dan perbarui course_prodi
+				const updatedCourse = { ...newCourse, course_prodi: prodi };
+				
+				// Panggil addCourse dengan updatedCourse
+				await addCourse(updatedCourse);
+	
+				// Set newCourse kembali ke nilai awal setelah berhasil menambahkan course
+				setNewCourse({ course_kode: '', course_name: '', course_sks: 0, course_semester: '', course_prodi: prodi });
 			} catch (error) {
 				console.error('Error adding course:', error);
 			}
@@ -531,7 +528,7 @@ const CoursesTable = (user: user1) => {
 						<h2 className="text-lg text-white">apakah anda ingin menghapus kurikulum ini?</h2>
 						<div className="flex gap-5 mt-5">
 							<button onClick={() => handleDeleteCourse(deletedID)} className="bg-red-500 py-2 px-2 rounded-md text-white">ya</button>
-							<button className="bg-green-500 py-2 px-2 rounded-md text-white">tidak</button>
+							<button onClick={() => {setIsdelete(false); setDeletedID(0)}} className="bg-green-500 py-2 px-2 rounded-md text-white">tidak</button>
 						</div>
 					</div>
 				</div>

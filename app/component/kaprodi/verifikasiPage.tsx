@@ -238,6 +238,20 @@
 			);
 		};
 
+		const handleFinish = async () => {
+			if (!userData) return;
+			const { error } = await supabase
+    		    .from('prodi')
+    		    .update({check: 1})
+    		    .eq('prodi_id', userData.user_prodi.prodi_id);
+
+    		if (error) {
+    		    console.error('Error updating jadwal:', error);
+    		} else {
+    		    alert('Jadwal berhasil diperbarui!');
+    		}
+		};
+
 		return (  
 			<div className="h-full px-10 flex justify-center flex-col items-center py-14 gap-10">
 				<div className="min-h-[600px] min-w-[1330px] w-full h-[100%] flex flex-col items-center">
@@ -411,7 +425,7 @@
 						</div>
 					)}
 					<div className='flex w-full justify-end px-10 pt-10'>
-						<button className="px-4 py-2 w-fit bg-green-500 text-white text-base font-medium rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-blue-300">Selesai</button>
+						<button onClick={handleFinish} className="px-4 py-2 w-fit bg-green-500 text-white text-base font-medium rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-blue-300">Selesai</button>
 					</div>
 				</div>
 			</div>

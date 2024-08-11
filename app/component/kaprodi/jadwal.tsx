@@ -67,14 +67,29 @@ interface ScheduleTabsProps {
     duplicateCourses: OptimizedSchedule[];
 }
 
+const daysOrder = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+
+const sortCoursesByDayAndTime = (courses: OptimizedSchedule[]) => {
+    return courses.sort((a, b) => {
+        const dayComparison = daysOrder.indexOf(a.schedule_hari) - daysOrder.indexOf(b.schedule_hari);
+        if (dayComparison !== 0) {
+            return dayComparison;
+        }
+        return a.schedule_waktu.localeCompare(b.schedule_waktu);
+    });
+};
+
+
+
 const ScheduleTabs: React.FC<ScheduleTabsProps> = ({ morningCourses, eveningCourses, duplicateCourses }) => {
     const [activeTab, setActiveTab] = useState<'morning' | 'evening'>('morning');
 
-    const currentCourses = activeTab === 'morning' ? morningCourses : eveningCourses;
+    const currentCourses = activeTab === 'morning' ? sortCoursesByDayAndTime(morningCourses) : sortCoursesByDayAndTime(eveningCourses);
     const currentDuplicates = duplicateCourses.filter(course => 
         (activeTab === 'morning' && course.schedule_waktu >= '08:00' && course.schedule_waktu <= '12:00') ||
         (activeTab === 'evening' && course.schedule_waktu >= '18:00' && course.schedule_waktu <= '22:00')
     );
+    
 
     return (
         <div>
@@ -106,6 +121,8 @@ const ScheduleTabs: React.FC<ScheduleTabsProps> = ({ morningCourses, eveningCour
 interface ScheduleTableProps {
     courses: OptimizedSchedule[];
 }
+
+
 
 const ScheduleTable: React.FC<ScheduleTableProps> = ({ courses }) => {
     return (
@@ -175,7 +192,10 @@ const DuplicateCoursesTable: React.FC<ScheduleTableProps> = ({ courses }) => {
 const Jadwal = () => {
     const supabase = createClientSupabase();
     const [courses, setCourses] = useState<OptimizedSchedule[]>([]);
+  
     const {userData} = useUser()
+
+
 
     useEffect(() => {
         console.log( "data",userData);
