@@ -74,7 +74,7 @@ type PreferenceConflict = {
 };
 
 type ConflictMessage = [ScheduleConflict[], PreferenceConflict[]];
-
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const Home = () => {
 
@@ -220,7 +220,7 @@ const Home = () => {
         let eventSource: EventSource | null = null;
     
         if (loading) {
-            eventSource = new EventSource('http://localhost:8080/status', { withCredentials: true });
+            eventSource = new EventSource(`${API_URL}/status`, { withCredentials: true });
     
             eventSource.addEventListener('status', (event) => {
                 try {
@@ -254,7 +254,7 @@ const Home = () => {
 
     const handleStop = async () => {
         try {
-            const response = await fetch('http://localhost:8080/stop', {
+            const response = await fetch(`${API_URL}/stop`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
             });
@@ -299,7 +299,7 @@ const Home = () => {
         // setConflicts(undefined);
         // setShowModal(false);
 
-        eventSourceRef.current = new EventSource('http://localhost:8080/status', { withCredentials: true });
+        eventSourceRef.current = new EventSource(`${API_URL}/status`, { withCredentials: true });
     
         eventSourceRef.current.addEventListener('status', (event) => {
             try {
@@ -327,7 +327,7 @@ const Home = () => {
         try {
             if (!scheduleData.length) throw new Error('Data jadwal kosong');
     
-            const response = await fetch('http://localhost:8080/optimize', {
+            const response = await fetch(`${API_URL}/optimize`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
