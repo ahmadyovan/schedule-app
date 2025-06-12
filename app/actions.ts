@@ -10,7 +10,7 @@ export const signIn = async (formData: FormData) => {
 	const supabase = await createClient();
 
 	if (!email || !password) {
-		redirect('/login?error=' + encodeURIComponent('Email dan password harus diisi') + '&type=VALIDATION_ERROR')
+		redirect('/sign-in?error=' + encodeURIComponent('Email dan password harus diisi') + '&type=VALIDATION_ERROR')
 	}
 
 	const { error } = await supabase.auth.signInWithPassword({
@@ -33,7 +33,7 @@ export const signIn = async (formData: FormData) => {
 			errorMessage = 'Terlalu banyak percobaan login. Silakan coba lagi nanti'
 		}
 
-		redirect(`/login?error=${encodeURIComponent(errorMessage)}&type=${errorType}`)
+		redirect(`/sign-in?error=${encodeURIComponent(errorMessage)}&type=${errorType}`)
 	}
 
 	// ✅ Ambil user role setelah login
@@ -59,10 +59,10 @@ export const signIn = async (formData: FormData) => {
 			}
 			
 		} else {
-			redirect("/login?error=Gagal mendapatkan role user&type=FETCH_ROLE_ERROR");
+			redirect("/sign-in?error=Gagal mendapatkan role user&type=FETCH_ROLE_ERROR");
 		}
 	} else {
-		redirect("/login?error=Gagal Login&type=FETCH_ERROR");
+		redirect("/sign-in?error=Gagal Login&type=FETCH_ERROR");
 	}
 };
 
