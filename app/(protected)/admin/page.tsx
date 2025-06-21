@@ -49,10 +49,9 @@ type OptimizationProgress = {
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-const API_WS_URL = process.env.NEXT_PUBLIC_API_WS_URL;
+// const API_WS_URL = process.env.NEXT_PUBLIC_API_WS_URL;
 
 // const API_URL = 'http://localhost:8000';
-// const API_WS_URL = 'ws://localhost:8000/ws';
 
 const Home = () => {
     const [preferenceData, setPreferenceData] = useState<PrefData[]>([]);
@@ -63,7 +62,7 @@ const Home = () => {
     const [statusModal, setStatusModal] = useState<boolean>();
     const [error, setError] = useState<string | null>(null);
     const [connectionStatus, setConnectionStatus] = useState<string>('disconnected');
-    
+    const eventSourceRef = useRef<EventSource | null>(null);
     const [params, setParams] = useState({
         swarm_size: 30,
         max_iterations: 100,
@@ -165,14 +164,8 @@ const Home = () => {
         shouldStopRef.current = true;
         isOptimizingRef.current = false;
         setIsRunning(false);
-        
-        // Send stop via WebSocket jika masih terkoneksi
-        if (optimizationSocketRef.current && optimizationSocketRef.current.readyState === WebSocket.OPEN) {
-            const stopMessage = JSON.stringify({ type: 'stop' });
-            optimizationSocketRef.current.send(stopMessage);
-        }
-        
-        // Send stop via REST API sebagai backup
+
+        // Stop via REST API
         try {
             const response = await fetch(`${API_URL}/stop`, { 
                 method: 'POST',
@@ -185,236 +178,137 @@ const Home = () => {
         } catch (err) {
             console.error('❌ Failed to send stop via REST API:', err);
         }
-        
-        // Close WebSocket
-        if (optimizationSocketRef.current) {
-            optimizationSocketRef.current.close(1000, 'User stopped optimization');
-            optimizationSocketRef.current = null;
+
+        // Close SSE connection
+        if (eventSourceRef.current) {
+            eventSourceRef.current.close();
+            eventSourceRef.current = null;
         }
-        
-        setIsRunning(false);
+
         setIsFinished(true);
         setConnectionStatus('disconnected');
     }, []);
 
     const runOptimization = useCallback(async () => {
-        console.log('🚀 Starting integrated optimization with WebSocket...');
-        
-        if (!scheduleData.length) {
-            setError('Data jadwal kosong');
+    console.log('🚀 Starting optimization with SSE...');
+
+    if (!scheduleData.length) {
+        setError('Data jadwal kosong');
+        return;
+    }
+
+    // Reset flags
+    shouldStopRef.current = false;
+    isOptimizingRef.current = true;
+    setError(null);
+    setIsRunning(true);
+    setIsFinished(false);
+    setConnectionStatus('connecting');
+
+    setProgress({
+        all_best_fitness: null,
+        best_fitness: 0,
+        current_run: 1,
+        elapsed_time: { secs: 0, nanos: 0 },
+        is_finished: false,
+        iteration: 0,
+        total_runs: params.num_runs || 1,
+    });
+
+    // Setup SSE
+    const es = new EventSource(`${API_URL}/status`);
+    eventSourceRef.current = es;
+
+    es.onopen = () => {
+        console.log('✅ Connected to SSE');
+        setConnectionStatus('connected');
+    };
+
+    es.onerror = (err) => {
+        console.error('❌ SSE error:', err);
+        setError('Koneksi SSE gagal');
+        es.close();
+        setConnectionStatus('error');
+        setIsRunning(false);
+        isOptimizingRef.current = false;
+    };
+
+    es.addEventListener('status', (event) => {
+        if (shouldStopRef.current) {
+            console.log('🛑 Ignoring SSE message - optimization stopped');
             return;
         }
 
-        // Reset flags
-        shouldStopRef.current = false;
-        isOptimizingRef.current = true;
-        setError(null);
-        setIsRunning(true);
-        setIsFinished(false);
-        setConnectionStatus('connecting');
+        try {
+            const data = JSON.parse(event.data);
+            console.log('📩 SSE progress:', data);
 
-        // Reset progress
-        setProgress({
-            all_best_fitness: null,
-            best_fitness: 0,
-            current_run: 1,
-            elapsed_time: { secs: 0, nanos: 0 },
-            is_finished: false,
-            iteration: 0,
-            total_runs: params.num_runs || 1,
-        });
+            setProgress((prev) => {
+                const updated = { ...prev, ...data };
+                return updated;
+            });
 
-        // Buat WebSocket baru untuk sesi optimasi ini
-        return new Promise<void>((resolve, reject) => {
-            console.log('🔗 Creating WebSocket connection for optimization...');
-      
-            const socket = new WebSocket(API_WS_URL!);
-            optimizationSocketRef.current = socket;
-
-            let isConnected = false;
-            let optimizationStarted = false;
-
-            // Timeout untuk koneksi
-            const connectionTimeout = setTimeout(() => {
-                if (!isConnected) {
-                    console.error('❌ WebSocket connection timeout');
-                    setError('Koneksi WebSocket timeout. Coba lagi.');
-                    socket.close();
-                    cleanup();
-                    reject(new Error('Connection timeout'));
-                }
-            }, 10000); // 10 detik timeout
-
-            const cleanup = () => {
-                clearTimeout(connectionTimeout);
-                isOptimizingRef.current = false;
+            if (data.is_finished) {
+                console.log('🏁 Optimization finished via SSE');
                 setIsRunning(false);
+                setIsFinished(true);
+                isOptimizingRef.current = false;
+
+                es.close();
                 setConnectionStatus('disconnected');
-                if (optimizationSocketRef.current === socket) {
-                    optimizationSocketRef.current = null;
-                }
-            };
+            }
+        } catch (err) {
+            console.error('❌ Failed to parse SSE data:', err);
+        }
+    });
 
-            socket.onopen = () => {
-                console.log('✅ WebSocket connected for optimization');
-                isConnected = true;
-                setConnectionStatus('connected');
-                clearTimeout(connectionTimeout);
+    // Start optimization via REST
+    const startOptimizationRequest = async () => {
+        const requestBody = {
+            courses: scheduleData,
+            time_preferences: preferenceData,
+            parameters: {
+                swarm_size: params.swarm_size,
+                max_iterations: params.max_iterations,
+                cognitive_weight: params.cognitive_weight,
+                social_weight: params.social_weight,
+                inertia_weight: params.inertia_weight,
+                num_runs: params.num_runs,
+            },
+        };
 
-                // Kirim handshake
-                const handshake = JSON.stringify({
-                    type: 'optimization_start',
-                    timestamp: new Date().toISOString(),
-                    session_id: `session_${Date.now()}`
-                });
-                socket.send(handshake);
+        console.log('📤 Sending optimization request to REST API');
+        setStatusModal(true);
 
-                // Start optimization via REST API
-                startOptimizationRequest().then(() => {
-                    optimizationStarted = true;
-                }).catch(err => {
-                    console.error('❌ Failed to start optimization:', err);
-                    setError(`Gagal memulai optimasi: ${err.message}`);
-                    socket.close();
-                    cleanup();
-                    reject(err);
-                });
-            };
-
-            socket.onmessage = (event) => {
-                if (shouldStopRef.current) {
-                    console.log('🛑 Ignoring message - optimization stopped');
-                    return;
-                }
-
-                try {
-                    console.log('📩 WebSocket raw data:', event.data);
-                    const data = JSON.parse(event.data);
-                    console.log('📩 WebSocket parsed data:', data);
-                    
-                    // Handle berbagai tipe pesan
-                    if (data.type === 'connection' || data.type === 'handshake') {
-                        console.log('✅ Connection/Handshake confirmed:', data.message);
-                        return;
-                    }
-                    
-                    if (data.type === 'error') {
-                        console.error('❌ Server error:', data.message);
-                        setError(data.message);
-                        return;
-                    }
-                    
-                    // Handle progress update
-                    if (data.type === 'progress' || typeof data.iteration !== 'undefined') {
-                        console.log('📊 Progress update:', data);
-                        
-                        setProgress(prevProgress => {
-                            const newProgress = { ...prevProgress, ...data };
-                            console.log('📊 Updated progress state:', newProgress);
-                            return newProgress;
-                        });
-
-                        // Check jika optimasi selesai
-                        if (data.is_finished) {
-                            console.log('🏁 Optimization finished via WebSocket');
-                            setIsRunning(false);
-                            setIsRunning(false);
-                            setIsFinished(true);
-                            isOptimizingRef.current = false;
-                            
-                            // Close socket setelah selesai
-                            setTimeout(() => {
-                                socket.close(1000, 'Optimization completed');
-                                cleanup();
-                                resolve();
-                            }, 1000);
-                        }
-                    }
-                } catch (err) {
-                    console.error('❌ Error parsing WebSocket message:', err);
-                    console.error('Raw message:', event.data);
-                }
-            };
-
-            socket.onerror = (err) => {
-                console.error('❌ WebSocket error:', err);
-                setConnectionStatus('error');
-                setError('Error pada koneksi WebSocket');
-                cleanup();
-                reject(new Error('WebSocket error'));
-            };
-
-            socket.onclose = (event) => {
-                console.log('❎ WebSocket closed:', event.code, event.reason);
-                setConnectionStatus('disconnected');
-                
-                // if (event.code !== 1000 && !shouldStopRef.current && isOptimizingRef.current) {
-                //     console.error('❌ WebSocket closed unexpectedly');
-                //     setError('Koneksi WebSocket terputus secara tidak terduga');
-                //     setIsRunning(false);
-                //     setIsRunning(false);
-                // }
-                
-                cleanup();
-                if (optimizationStarted && !shouldStopRef.current) {
-                    resolve(); // Resolve jika optimasi sudah dimulai
-                }
-            };
-
-            // Fungsi untuk memulai optimasi via REST API
-            const startOptimizationRequest = async () => {
-                const requestBody = {
-                    courses: scheduleData,
-                    time_preferences: preferenceData,
-                    parameters: {
-                        swarm_size: params.swarm_size,
-                        max_iterations: params.max_iterations,
-                        cognitive_weight: params.cognitive_weight,
-                        social_weight: params.social_weight,
-                        inertia_weight: params.inertia_weight,
-                        num_runs: params.num_runs,
-                    },
-                };
-
-                console.log('📤 Sending optimization request to REST API');
-                setStatusModal(true)
-
-                const response = await fetch(`${API_URL}/optimize`, {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify(requestBody),
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP ${response.status}: ${errorText}`);
-                }
-
-                const result = await response.json();
-                console.log('✅ REST API optimization completed:', result);
-                
-                // Update final state jika belum diupdate via WebSocket
-                // if (isOptimizingRef.current && !shouldStopRef.current) {
-                //     setProgress(prev => ({
-                //         ...prev,
-                //         best_fitness: result.fitness || prev.best_fitness,
-                //         all_best_fitness: result.all_best_fitness || prev.all_best_fitness,
-                //         is_finished: true
-                //     }));
-                    
-                //     setIsRunning(false);
-                //     setIsFinished(true);
-                //     isOptimizingRef.current = false;
-                // }
-                
-                return result;
-            };
+        const response = await fetch(`${API_URL}/optimize`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
         });
 
-    }, [scheduleData, preferenceData, params]);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ Optimization started, waiting for updates...');
+        return result;
+    };
+
+    try {
+        await startOptimizationRequest();
+    } catch (err) {
+        console.error('❌ Failed to start optimization:', err);
+        setError('Gagal memulai optimasi');
+        setIsRunning(false);
+        es.close();
+        setConnectionStatus('disconnected');
+    }
+}, [scheduleData, preferenceData, params]);
 
     const getAverage = (arr: number[]): number => {
         if (arr.length === 0) return 0;
