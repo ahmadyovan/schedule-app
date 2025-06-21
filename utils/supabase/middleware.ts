@@ -1,21 +1,15 @@
-// middleware.ts
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { get_single_data } from './functions'
+import { resolveRedirectPath } from '@/utils/auth/redirect-by-role' // path sesuaikan
 
 const PUBLIC_ROUTES = ['/sign-in', '/signup', '/forgot-password', '/reset-password', '/not-authorized']
 const AUTH_ROUTES = ['/sign-in', '/signup']
-
-const ROLE_ACCESS: Record<string, string> = {
-  kaprodi: '/kaprodi',
-  dosen: '/dosen',
-  admin: '/admin',
-}
 
 export async function updateSession(request: NextRequest) {
 	const currentPath = request.nextUrl.pathname
 	console.log(`[Middleware] Request to: ${currentPath}`)
 
-	// Skip middleware untuk API routes
 	if (currentPath.startsWith('/api')) {
 		console.log('[Middleware] Skipping API route...')
 		return NextResponse.next()
@@ -28,9 +22,7 @@ export async function updateSession(request: NextRequest) {
 		process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 		{
 			cookies: {
-				getAll() {
-					return request.cookies.getAll()
-				},
+				getAll: () => request.cookies.getAll(),
 				setAll(cookiesToSet) {
 					cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
 					supabaseResponse = NextResponse.next({ request })
@@ -49,28 +41,34 @@ export async function updateSession(request: NextRequest) {
 	if (user) {
 		console.log(`[Middleware] User is logged in: ${user.id}`)
 
-		const { data } = await supabase
-			.from('user')
-			.select('job')
-			.eq('uid', user.id)
-			.single()
+		const userData = await get_single_data<{ job: string }>("user", "job", [
+			{ column: "uid", value: user.id }
+		]);
 
-		if (data) {
-			const role = data.job
-			const allowedRoutes = ROLE_ACCESS[role]
-			console.log(`[Middleware] User role: ${role}, Allowed route: ${allowedRoutes}`)
+		if (userData) {
+			const role = userData.job;
+			const redirectPath = await resolveRedirectPath(role);
 
-			// Redirect user dari halaman auth jika sudah login
-			if (AUTH_ROUTES.includes(currentPath)) {
-				console.log('[Middleware] Redirecting logged-in user away from auth page...')
+			console.log(`[Middleware] User role: ${role}, Redirect path: ${redirectPath}`)
+
+			if (!redirectPath) {
 				const url = request.nextUrl.clone()
-				url.pathname = allowedRoutes
+				url.pathname = '/not-authorized'
 				return NextResponse.redirect(url)
 			}
 
-			// Cek apakah current path diizinkan untuk role tersebut
-			if (!currentPath.startsWith(allowedRoutes) && !PUBLIC_ROUTES.includes(currentPath)) {
-				console.log(`[Middleware] User trying to access unauthorized path: ${currentPath}`)
+			// Cegah akses ke halaman auth kalau sudah login
+			if (AUTH_ROUTES.includes(currentPath)) {
+				const url = request.nextUrl.clone()
+				url.pathname = redirectPath
+				return NextResponse.redirect(url)
+			}
+
+			const allowedRoot = "/" + role;
+
+			// Cek izin akses
+			if ( !currentPath.startsWith(allowedRoot) && !PUBLIC_ROUTES.includes(currentPath)) {
+				console.log(`[Middleware] Access denied to ${currentPath}`)
 				const url = request.nextUrl.clone()
 				url.pathname = '/not-authorized'
 				return NextResponse.redirect(url)
@@ -82,7 +80,6 @@ export async function updateSession(request: NextRequest) {
 		console.log('[Middleware] No user logged in')
 	}
 
-	// Security headers
 	const securityHeaders = {
 		'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
 		'X-Frame-Options': 'DENY',

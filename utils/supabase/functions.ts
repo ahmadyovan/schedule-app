@@ -51,6 +51,28 @@ export async function get_data<T>(
   return data as T[];
 }
 
+export async function get_single_data<T>(
+    table: string,
+    selectFields: string,
+    filters: Filter[] = []
+): Promise<T> {
+    const supabase = await createClient();
+    let query = supabase.from(table).select(selectFields);
+
+    for (const filter of filters) {
+      query = query.eq(filter.column, filter.value);
+    }
+
+    const { data, error } = await query.single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data as T;
+}
+
+
 export const getUserData = async () => {
     const supabase = await createClient();
     const {

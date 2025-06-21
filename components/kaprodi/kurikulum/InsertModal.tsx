@@ -7,9 +7,10 @@ interface props {
 	open: boolean
 	prodi: number;
 	onClose: () => void;
+	onSuccess: () => void;
 }
 
-const InsertModal = ({open, prodi, onClose}: props) => {
+const InsertModal = ({open, prodi, onClose, onSuccess}: props) => {
   
 	const [formData, setFormData] = useState({ 
 		kode: "", nama: "", prodi: prodi, semester: '',  sks: '',  
@@ -36,6 +37,7 @@ const InsertModal = ({open, prodi, onClose}: props) => {
 
 		if (result.success) {
 			console.log('Course added:', result);
+			onSuccess();
 			onClose();
 		} else {
 			console.error('Error inserting course:', result.message);

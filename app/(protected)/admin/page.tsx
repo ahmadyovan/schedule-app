@@ -1,7 +1,6 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from "@/utils/supabase/client";
-import { updateData } from '@/utils/functions';
 
 const supabase = createClient();
 
@@ -17,111 +16,90 @@ type ScheduleItem = {
 };
 
 type PrefData = {
-    id_dosen: number,
-    senin_pagi: boolean,
-    senin_malam: boolean,
-    selasa_pagi: boolean,
-    selasa_malam: boolean,
-    rabu_pagi: boolean,
-    rabu_malam: boolean,
-    kamis_pagi: boolean,
-    kamis_malam: boolean,
-    jumat_pagi: boolean,
-    jumat_malam: boolean,
-}
+    id: number;
+    id_dosen: number;
+    senin_pagi: boolean;
+    senin_malam: boolean;
+    selasa_pagi: boolean;
+    selasa_malam: boolean;
+    rabu_pagi: boolean;
+    rabu_malam: boolean;
+    kamis_pagi: boolean;
+    kamis_malam: boolean;
+    jumat_pagi: boolean;
+    jumat_malam: boolean;
+};
 
 type ElapsedTime = {
-	secs: number;
-	nanos: number;
+    secs: number;
+    nanos: number;
 };
 
 type OptimizationProgress = {
-	all_best_fitness: number | null;
-	best_fitness: number;
-	current_run: number;
-	elapsed_time: ElapsedTime;
-	is_finished: boolean;
-	iteration: number;
-	total_runs: number | null;
+    iteration: number;
+    elapsed_time: {
+        secs: number;
+        nanos: number;
+    };
+    best_fitness: number;
+    all_best_fitness: number[] | null;
+    current_run: number;
+    total_runs: number | null;
+    is_finished: boolean;
 };
 
-type OptimizedSchedule = {
-    id_jadwal: number;
-    prodi: number;
-    semester: number;
-    mata_kuliah: number;
-    sks: number;
-    dosen: number;
-    hari: number;
-    jam_mulai: number;
-    jam_akhir: number;
-    kelas: number;
-    ruangan: number;
-};
-
-type ScheduleConflict = {
-  deskripsi: string;
-  jadwal_a: number;
-  jadwal_b: number;
-};
-
-type PreferenceConflict = {
-  deskripsi: string;
-  id_dosen: number;
-  id_jadwal: number;
-  hari: number;
-  jam_mulai: number;
-};
-
-type ConflictMessage = [ScheduleConflict[], PreferenceConflict[]];
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_WS_URL = process.env.NEXT_PUBLIC_API_WS_URL;
+
+// const API_URL = 'http://localhost:8000';
+// const API_WS_URL = 'ws://localhost:8000/ws';
 
 const Home = () => {
-
-    // const [courseData, setCourseData] = useState("");
-	const [preferenceData, setPreferenceData] = useState<PrefData[]>([]);
+    const [preferenceData, setPreferenceData] = useState<PrefData[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const [isRunning, setIsRunning] = useState(false);
     const [scheduleData, setScheduleData] = useState<ScheduleItem[]>([]);
-    const [isFInished, setIsFinished] =useState<boolean>(false)
-    const [params, setParams] = useState({
-		swarm_size: 30,
-		max_iterations: 100,
-		cognitive_weight: 2.0,
-		social_weight: 2.0,
-		inertia_weight: 0.7,
-		num_runs: 1,
-	});
-    const [progress, setProgress] = useState<OptimizationProgress>({
-		all_best_fitness: null,
-		best_fitness: 0,
-		current_run: 1,
-		elapsed_time: {
-			secs: 0,
-			nanos: 0,
-		},
-		is_finished: false,
-		iteration: 0,
-		total_runs: null,
-	});
-
+    const [isFinished, setIsFinished] = useState<boolean>(false);
+    const [statusModal, setStatusModal] = useState<boolean>();
+    const [error, setError] = useState<string | null>(null);
+    const [connectionStatus, setConnectionStatus] = useState<string>('disconnected');
     
-    const [loading, setLoading] = useState(false);
+    const [params, setParams] = useState({
+        swarm_size: 30,
+        max_iterations: 100,
+        cognitive_weight: 2.0,
+        social_weight: 2.0,
+        inertia_weight: 0.7,
+        num_runs: 1,
+    });
+    
+    const [progress, setProgress] = useState<OptimizationProgress>({
+        all_best_fitness: null,
+        best_fitness: 0,
+        current_run: 1,
+        elapsed_time: { secs: 0, nanos: 0 },
+        is_finished: false,
+        iteration: 0,
+        total_runs: null,
+    });
 
-    const eventSourceRef = useRef<EventSource | null>(null);
+    // Refs untuk optimization session
+    const optimizationSocketRef = useRef<WebSocket | null>(null);
+    const isOptimizingRef = useRef(false);
+    const shouldStopRef = useRef(false);
 
     const fetchData = async () => {
         try {
+            setError(null);
             const [{ data: jadwalData, error: jadwalError }, { data: prefData, error: prefError }] = await Promise.all([
                 supabase.from('jadwal').select('id, id_matkul, id_dosen, id_waktu, id_kelas, semester, mata_kuliah:id_matkul(sks, prodi)'),
                 supabase.from('prefWaktu').select('*')
-            ]);;
-            
+            ]);
 
             if (jadwalError) throw jadwalError;
             if (prefError) throw prefError;
-            if (!jadwalData || !prefData) return
-    
+            if (!jadwalData || !prefData) throw new Error('No data received');
+
             const formattedJadwal = jadwalData.map(item => {
                 const mataKuliah = Array.isArray(item.mata_kuliah) ? item.mata_kuliah[0] : item.mata_kuliah;
 
@@ -133,14 +111,34 @@ const Home = () => {
                     id_kelas: item.id_kelas,
                     semester: item.semester,
                     sks: mataKuliah?.sks ?? 0,
-                    prodi: mataKuliah?.prodi ?? ''
+                    prodi: mataKuliah?.prodi ?? 0, // pakai 0 sebagai default prodi
                 };
             });
 
+
+            console.log(prefData);
+
+            const cleanedPrefData: PrefData[] = prefData.map((item) => ({
+                id: item.id,
+                id_dosen: item.id_dosen ?? 0,
+                senin_pagi: item.senin_pagi ?? false,
+                senin_malam: item.senin_malam ?? false,
+                selasa_pagi: item.selasa_pagi ?? false,
+                selasa_malam: item.selasa_malam ?? false,
+                rabu_pagi: item.rabu_pagi ?? false,
+                rabu_malam: item.rabu_malam ?? false,
+                kamis_pagi: item.kamis_pagi ?? false,
+                kamis_malam: item.kamis_malam ?? false,
+                jumat_pagi: item.jumat_pagi ?? false,
+                jumat_malam: item.jumat_malam ?? false,
+            }));
+            
+
             setScheduleData(formattedJadwal);
-            setPreferenceData(prefData);
+            setPreferenceData(cleanedPrefData);
         } catch (err) {
             console.error('Gagal mengambil data:', err);
+            setError('Gagal mengambil data dari database');
         }
     };
 
@@ -148,189 +146,224 @@ const Home = () => {
         fetchData();
     }, []);
 
-    const insertConflictList = async (message: ConflictMessage) => {
-        const [scheduleConflicts, preferenceConflicts] = message;
-
-        const conflictData = [
-            ...scheduleConflicts.map((item) => ({
-            deskripsi: item.deskripsi,
-            jadwal_a: item.jadwal_a,
-            jadwal_b: item.jadwal_b,
-            id_dosen: null,
-            id_jadwal: null,
-            hari: null,
-            })),
-            ...preferenceConflicts.map((item) => ({
-            deskripsi: item.deskripsi,
-            jadwal_a: null,
-            jadwal_b: null,
-            id_dosen: item.id_dosen,
-            id_jadwal: item.id_jadwal,
-            hari: item.hari,
-            })),
-        ];
-
-        await supabase
-  .from('conflicts')
-  .delete()
-  .not('id', 'is', null);
-        const { data, error } = await supabase.from('conflicts').insert(conflictData);
-
-        if (error) {
-            console.error('Gagal insert konflik:', error.message);
-        } else {
-            console.log('Berhasil insert konflik:', data);
-        }
-    };
-
-    const updateScheduleData = async (
-        optimizedSchedule: OptimizedSchedule[],
-        existingSchedule: ScheduleItem[]
-        ): Promise<void> => {
-        for (const existingItem of existingSchedule) {
-            const optimizedItem = optimizedSchedule.find((item) => item.id_jadwal === existingItem.id_jadwal);
-
-            if (optimizedItem) {
-                const result = await updateData({
-                    table: 'jadwal',
-                    payload: {
-                        id_hari: optimizedItem.hari,
-                        id_ruangan: optimizedItem.ruangan,
-                        jam_mulai: optimizedItem.jam_mulai,
-                        jam_akhir: optimizedItem.jam_akhir,
-                    },
-                    filters: [
-                    {
-                        column: 'id',
-                        value: existingItem.id_jadwal,
-                    },
-                    ],
-                });
-
-                if (!result.success) {
-                    console.error(`Gagal update jadwal untuk id ${existingItem.id_jadwal}`);
-                }
-            }
-        }
-
-        console.log("Semua data berhasil diperbarui!");
-    };
-
+    // Cleanup saat component unmount
     useEffect(() => {
-        let eventSource: EventSource | null = null;
-    
-        if (loading) {
-            eventSource = new EventSource(`${API_URL}/status`, { withCredentials: true });
-    
-            eventSource.addEventListener('status', (event) => {
-                try {
-                    const status: OptimizationProgress = JSON.parse(event.data);
-                    console.log('SSE Update:', status);
-            
-                   setProgress(status)
-
-                    if (isFInished) {
-                        eventSource?.close();
-                        setLoading(false);
-                    }
-                } catch (error) {
-                    console.error("Error parsing SSE message:", error);
-                }
-            });
-    
-            eventSource.onerror = (error) => {
-                console.error('SSE Error:', error);
-                eventSource?.close();
-                setLoading(false);
-              
-            };
-        }
-    
         return () => {
-            eventSource?.close();
-        };
-    }, [isFInished, loading]);
-    
-
-    const handleStop = async () => {
-        try {
-            const response = await fetch(`${API_URL}/stop`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-            });
-    
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Gagal menghentikan optimisasi');
-            }
-    
-            console.log('Optimisasi dihentikan');
-            setLoading(false);
-            setIsFinished(true);
+            console.log('🧹 Component cleanup');
+            shouldStopRef.current = true;
+            isOptimizingRef.current = false;
             
-            if (eventSourceRef.current) {
-                eventSourceRef.current.close();
-                eventSourceRef.current = null;
+            if (optimizationSocketRef.current) {
+                optimizationSocketRef.current.close(1000, 'Component unmounting');
+                optimizationSocketRef.current = null;
             }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (err: any) {
-            console.error('Error stopping optimization:', err);
+        };
+    }, []);
+
+    const handleStop = useCallback(async () => {
+        console.log('🛑 Stopping optimization...');
+        shouldStopRef.current = true;
+        isOptimizingRef.current = false;
+        setIsRunning(false);
+        
+        // Send stop via WebSocket jika masih terkoneksi
+        if (optimizationSocketRef.current && optimizationSocketRef.current.readyState === WebSocket.OPEN) {
+            const stopMessage = JSON.stringify({ type: 'stop' });
+            optimizationSocketRef.current.send(stopMessage);
         }
-    };
-    
-    const runOptimization = async () => {
-        setLoading(true);
-        setIsRunning(true)
-        setIsFinished(false)
+        
+        // Send stop via REST API sebagai backup
+        try {
+            const response = await fetch(`${API_URL}/stop`, { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (response.ok) {
+                console.log('✅ Stop signal sent via REST API');
+            }
+        } catch (err) {
+            console.error('❌ Failed to send stop via REST API:', err);
+        }
+        
+        // Close WebSocket
+        if (optimizationSocketRef.current) {
+            optimizationSocketRef.current.close(1000, 'User stopped optimization');
+            optimizationSocketRef.current = null;
+        }
+        
+        setIsRunning(false);
+        setIsFinished(true);
+        setConnectionStatus('disconnected');
+    }, []);
+
+    const runOptimization = useCallback(async () => {
+        console.log('🚀 Starting integrated optimization with WebSocket...');
+        
+        if (!scheduleData.length) {
+            setError('Data jadwal kosong');
+            return;
+        }
+
+        // Reset flags
+        shouldStopRef.current = false;
+        isOptimizingRef.current = true;
+        setError(null);
+        setIsRunning(true);
+        setIsFinished(false);
+        setConnectionStatus('connecting');
+
+        // Reset progress
         setProgress({
             all_best_fitness: null,
             best_fitness: 0,
             current_run: 1,
-            elapsed_time: {
-                secs: 0,
-                nanos: 0,
-            },
+            elapsed_time: { secs: 0, nanos: 0 },
             is_finished: false,
             iteration: 0,
-            total_runs: null,
-        })
-        // setError(null);
-        // setIteration(0);
-        // setConflicts(undefined);
-        // setShowModal(false);
-
-        eventSourceRef.current = new EventSource(`${API_URL}/status`, { withCredentials: true });
-    
-        eventSourceRef.current.addEventListener('status', (event) => {
-            try {
-                const status: OptimizationProgress = JSON.parse(event.data);
-                console.log('SSE Update:', status);
-
-                setProgress(status)
-        
-                if (status.is_finished) {
-                    eventSourceRef.current?.close();
-                    setLoading(false);
-                }
-            } catch (error) {
-                console.error("Error parsing SSE message:", error);
-            }
+            total_runs: params.num_runs || 1,
         });
-        
-        eventSourceRef.current.onerror = (error) => {
-            console.error('SSE Error:', error);
-            eventSourceRef.current?.close();
-            setLoading(false);
-            // setError("Koneksi real-time terputus");
-        };
-    
-        try {
-            if (!scheduleData.length) throw new Error('Data jadwal kosong');
-    
-            const response = await fetch(`${API_URL}/optimize`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+
+        // Buat WebSocket baru untuk sesi optimasi ini
+        return new Promise<void>((resolve, reject) => {
+            console.log('🔗 Creating WebSocket connection for optimization...');
+      
+            const socket = new WebSocket(API_WS_URL!);
+            optimizationSocketRef.current = socket;
+
+            let isConnected = false;
+            let optimizationStarted = false;
+
+            // Timeout untuk koneksi
+            const connectionTimeout = setTimeout(() => {
+                if (!isConnected) {
+                    console.error('❌ WebSocket connection timeout');
+                    setError('Koneksi WebSocket timeout. Coba lagi.');
+                    socket.close();
+                    cleanup();
+                    reject(new Error('Connection timeout'));
+                }
+            }, 10000); // 10 detik timeout
+
+            const cleanup = () => {
+                clearTimeout(connectionTimeout);
+                isOptimizingRef.current = false;
+                setIsRunning(false);
+                setConnectionStatus('disconnected');
+                if (optimizationSocketRef.current === socket) {
+                    optimizationSocketRef.current = null;
+                }
+            };
+
+            socket.onopen = () => {
+                console.log('✅ WebSocket connected for optimization');
+                isConnected = true;
+                setConnectionStatus('connected');
+                clearTimeout(connectionTimeout);
+
+                // Kirim handshake
+                const handshake = JSON.stringify({
+                    type: 'optimization_start',
+                    timestamp: new Date().toISOString(),
+                    session_id: `session_${Date.now()}`
+                });
+                socket.send(handshake);
+
+                // Start optimization via REST API
+                startOptimizationRequest().then(() => {
+                    optimizationStarted = true;
+                }).catch(err => {
+                    console.error('❌ Failed to start optimization:', err);
+                    setError(`Gagal memulai optimasi: ${err.message}`);
+                    socket.close();
+                    cleanup();
+                    reject(err);
+                });
+            };
+
+            socket.onmessage = (event) => {
+                if (shouldStopRef.current) {
+                    console.log('🛑 Ignoring message - optimization stopped');
+                    return;
+                }
+
+                try {
+                    console.log('📩 WebSocket raw data:', event.data);
+                    const data = JSON.parse(event.data);
+                    console.log('📩 WebSocket parsed data:', data);
+                    
+                    // Handle berbagai tipe pesan
+                    if (data.type === 'connection' || data.type === 'handshake') {
+                        console.log('✅ Connection/Handshake confirmed:', data.message);
+                        return;
+                    }
+                    
+                    if (data.type === 'error') {
+                        console.error('❌ Server error:', data.message);
+                        setError(data.message);
+                        return;
+                    }
+                    
+                    // Handle progress update
+                    if (data.type === 'progress' || typeof data.iteration !== 'undefined') {
+                        console.log('📊 Progress update:', data);
+                        
+                        setProgress(prevProgress => {
+                            const newProgress = { ...prevProgress, ...data };
+                            console.log('📊 Updated progress state:', newProgress);
+                            return newProgress;
+                        });
+
+                        // Check jika optimasi selesai
+                        if (data.is_finished) {
+                            console.log('🏁 Optimization finished via WebSocket');
+                            setIsRunning(false);
+                            setIsRunning(false);
+                            setIsFinished(true);
+                            isOptimizingRef.current = false;
+                            
+                            // Close socket setelah selesai
+                            setTimeout(() => {
+                                socket.close(1000, 'Optimization completed');
+                                cleanup();
+                                resolve();
+                            }, 1000);
+                        }
+                    }
+                } catch (err) {
+                    console.error('❌ Error parsing WebSocket message:', err);
+                    console.error('Raw message:', event.data);
+                }
+            };
+
+            socket.onerror = (err) => {
+                console.error('❌ WebSocket error:', err);
+                setConnectionStatus('error');
+                setError('Error pada koneksi WebSocket');
+                cleanup();
+                reject(new Error('WebSocket error'));
+            };
+
+            socket.onclose = (event) => {
+                console.log('❎ WebSocket closed:', event.code, event.reason);
+                setConnectionStatus('disconnected');
+                
+                // if (event.code !== 1000 && !shouldStopRef.current && isOptimizingRef.current) {
+                //     console.error('❌ WebSocket closed unexpectedly');
+                //     setError('Koneksi WebSocket terputus secara tidak terduga');
+                //     setIsRunning(false);
+                //     setIsRunning(false);
+                // }
+                
+                cleanup();
+                if (optimizationStarted && !shouldStopRef.current) {
+                    resolve(); // Resolve jika optimasi sudah dimulai
+                }
+            };
+
+            // Fungsi untuk memulai optimasi via REST API
+            const startOptimizationRequest = async () => {
+                const requestBody = {
                     courses: scheduleData,
                     time_preferences: preferenceData,
                     parameters: {
@@ -339,60 +372,104 @@ const Home = () => {
                         cognitive_weight: params.cognitive_weight,
                         social_weight: params.social_weight,
                         inertia_weight: params.inertia_weight,
-                        num_runs: params.num_runs
+                        num_runs: params.num_runs,
                     },
-                }),
-            });
-    
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Terjadi kesalahan');
-            }
-    
-            const result = await response.json();
-            console.log(result);
-            updateScheduleData(result.schedule, scheduleData)
-            insertConflictList(result.message)
-            // await updateScheduleData(result.schedule, scheduleData);
-            
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (err: any) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-            setIsFinished(true)
-        }
+                };
+
+                console.log('📤 Sending optimization request to REST API');
+                setStatusModal(true)
+
+                const response = await fetch(`${API_URL}/optimize`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody),
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+
+                const result = await response.json();
+                console.log('✅ REST API optimization completed:', result);
+                
+                // Update final state jika belum diupdate via WebSocket
+                // if (isOptimizingRef.current && !shouldStopRef.current) {
+                //     setProgress(prev => ({
+                //         ...prev,
+                //         best_fitness: result.fitness || prev.best_fitness,
+                //         all_best_fitness: result.all_best_fitness || prev.all_best_fitness,
+                //         is_finished: true
+                //     }));
+                    
+                //     setIsRunning(false);
+                //     setIsFinished(true);
+                //     isOptimizingRef.current = false;
+                // }
+                
+                return result;
+            };
+        });
+
+    }, [scheduleData, preferenceData, params]);
+
+    const getAverage = (arr: number[]): number => {
+        if (arr.length === 0) return 0;
+        const sum = arr.reduce((total, num) => total + num, 0);
+        return sum / arr.length;
     };
 
-    function getAverage(arr: number[]): number {
-		if (arr.length === 0) return 0;
+    const formatElapsedTime = (time?: ElapsedTime | null): string => {
+        if (!time) return 'Belum tersedia';
+        const totalSeconds = time.secs + time.nanos / 1_000_000_000;
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = (totalSeconds % 60).toFixed(2);
+        return `${minutes} menit ${seconds} detik`;
+    };
 
-		const sum = arr.reduce((total, num) => total + num, 0);
-		return sum / arr.length;
-	}
-
-    function formatElapsedTime(time?: ElapsedTime | null): string {
-		if (!time) return 'Belum tersedia';
-
-		const totalSeconds = time.secs + time.nanos / 1_000_000_000;
-		const minutes = Math.floor(totalSeconds / 60);
-		const seconds = (totalSeconds % 60).toFixed(2);
-
-		return `${minutes} menit ${seconds} detik`;
-	}
+    const getConnectionStatusColor = () => {
+        switch (connectionStatus) {
+            case 'connected': return 'bg-green-500';
+            case 'connecting': return 'bg-yellow-500';
+            case 'error': return 'bg-red-500';
+            default: return 'bg-gray-500';
+        }
+    };
 
     return (
         <div className="h-screen w-screen flex flex-col bg-white text-black">
 		    <div className="h-full flex flex-col gap-5 pt-10 items-center">
 			    <h1 className="w-fit text-2xl">OPTIMASI JADWAL KULIAH</h1>
+                
+                {/* Connection Status Indicator */}
+                <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${getConnectionStatusColor()}`} />
+                    <span className="text-sm">WebSocket: {connectionStatus}</span>
+                </div>
+
                 <div className="relative bg-green-300 w-1/2 rounded-lg px-8 py-10 flex flex-col justify-center items-center gap-5">
                     <div className="absolute top-0 w-full text-center h-7" id="notification-container" />
                     <div className="flex flex-col gap-2 items-center">
                         <p>jumlah percobaan</p>
-                        <input className="bg-white outline-none shadow-[0_2px_2px_rgba(0,0,0,0.2)] px-4 py-2 rounded-md" type="number" value={params.num_runs} onChange={(e) => setParams({ ...params, num_runs: +e.target.value})} />
+                        <input 
+                            className="bg-white outline-none shadow-[0_2px_2px_rgba(0,0,0,0.2)] px-4 py-2 rounded-md" 
+                            type="number" 
+                            value={params.num_runs} 
+                            onChange={(e) => setParams({ ...params, num_runs: +e.target.value})} 
+                            disabled={isRunning}
+                        />
                     </div>
                     <div className="w-full flex pt-8 justify-center">
-                        <button className="rounded-md border border-transparent px-4 py-2 text-base font-medium text-black bg-white transition-colors duration-200 shadow hover:border-blue-600 focus:outline-none" onClick={() => setIsOpen(true)}>optimasi</button>
+                        <button 
+                            className="rounded-md border border-transparent px-4 py-2 text-base font-medium text-black bg-white transition-colors duration-200 shadow hover:border-blue-600 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed" 
+                            onClick={() => setIsOpen(true)}
+                            disabled={isRunning}
+                        >
+                            optimasi
+                        </button>
                     </div>
                 </div>
             </div>
@@ -403,28 +480,51 @@ const Home = () => {
                     <h2 className="text-lg font-semibold mb-4">Parameter</h2>
                     <div className="flex flex-col gap-3">
                         <p>Jumlah Partikel</p>
-                        <input className="bg-gray-100 px-4 py-2 rounded-md" type="number" value={params.swarm_size} onChange={(e) => setParams({ ...params, swarm_size: +e.target.value })} />
+                        <input className="bg-gray-100 px-4 py-2 rounded-md" type="number" value={params.swarm_size} onChange={(e) => setParams({ ...params, swarm_size: +e.target.value })} disabled={isRunning} />
                         <p>Jumlah Iterasi</p>
-                        <input className="bg-gray-100 px-4 py-2 rounded-md" type="number" value={params.max_iterations} onChange={(e) => setParams({ ...params, max_iterations: +e.target.value })} />
+                        <input className="bg-gray-100 px-4 py-2 rounded-md" type="number" value={params.max_iterations} onChange={(e) => setParams({ ...params, max_iterations: +e.target.value })} disabled={isRunning} />
                         <p>Inertia Weight</p>
-                        <input className="bg-gray-100 px-4 py-2 rounded-md" type="number" value={params.inertia_weight} onChange={(e) => setParams({ ...params, inertia_weight: +e.target.value })} />
+                        <input className="bg-gray-100 px-4 py-2 rounded-md" type="number" step="0.1" value={params.inertia_weight} onChange={(e) => setParams({ ...params, inertia_weight: +e.target.value })} disabled={isRunning} />
                         <p>Cognitive Weight</p>
-                        <input className="bg-gray-100 px-4 py-2 rounded-md" type="number" value={params.cognitive_weight} onChange={(e) => setParams({ ...params, cognitive_weight: +e.target.value })} />
+                        <input className="bg-gray-100 px-4 py-2 rounded-md" type="number" step="0.1" value={params.cognitive_weight} onChange={(e) => setParams({ ...params, cognitive_weight: +e.target.value })} disabled={isRunning} />
                         <p>Social Weight</p>
-                        <input className="bg-gray-100 px-4 py-2 rounded-md" type="number" value={params.social_weight} onChange={(e) => setParams({ ...params, social_weight: +e.target.value })} />
+                        <input className="bg-gray-100 px-4 py-2 rounded-md" type="number" step="0.1" value={params.social_weight} onChange={(e) => setParams({ ...params, social_weight: +e.target.value })} disabled={isRunning} />
                     </div>
-                    <div className="flex justify-end">
-                        <button className="rounded-md border border-transparent px-4 py-2 text-base font-medium text-black bg-white transition-colors duration-200 shadow hover:border-blue-600 focus:outline-none" onClick={() => {runOptimization(); setIsOpen(false)}}>Run Optimization</button>
-                        <button className="rounded-md border border-transparent px-4 py-2 text-base font-medium text-black bg-white transition-colors duration-200 shadow hover:border-blue-600 focus:outline-none" onClick={() => setIsOpen(false)}>Tutup</button>
+                    <div className="flex justify-end gap-2 mt-4">
+                        <button 
+                            className="rounded-md border border-transparent px-4 py-2 text-base font-medium text-black bg-green-200 transition-colors duration-200 shadow hover:border-blue-600 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed" 
+                            onClick={() => {runOptimization(); setIsOpen(false)}}
+                        >
+                            Run Optimization
+                        </button>
+                        <button 
+                            className="rounded-md border border-transparent px-4 py-2 text-base font-medium text-black bg-gray-200 transition-colors duration-200 shadow hover:border-blue-600 focus:outline-none" 
+                            onClick={() => setIsOpen(false)}
+                        >
+                            Tutup
+                        </button>
                     </div>
                 </div>
             </div>
             )}
 
-            {isRunning && (
+            {statusModal && (
             <div className="fixed inset-0 z-50 w-full flex items-center justify-center bg-white/30 backdrop-blur-3xl">
-                <div className="bg-white rounded-xl w-fit shadow-lg min-w-xl max-w-1/2  p-6">
-                    <h2 className="text-lg text-center font-semibold mb-4">Proses</h2>
+                <div className="bg-white rounded-xl w-fit shadow-lg min-w-xl max-w-1/2 p-6">
+                    <h2 className="text-lg text-center font-semibold mb-4">Proses Optimasi</h2>
+                    
+                    {/* Connection Status */}
+                    <div className="flex items-center justify-center gap-2 mb-4">
+                        <div className={`w-3 h-3 rounded-full ${getConnectionStatusColor()}`} />
+                        <span className="text-sm">WebSocket: {connectionStatus}</span>
+                    </div>
+                    
+                    {error && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                            {error}
+                        </div>
+                    )}
+                    
                     <div className="flex flex-col gap-3">
                         <div className="grid grid-cols-[16fr_1fr_4fr] gap-3 w-fit">
                             <div className="flex flex-col items-start">
@@ -467,7 +567,7 @@ const Home = () => {
                                 <p>{progress.iteration}</p>
                                 <p>{progress.best_fitness}</p>
                                 <p className="">{formatElapsedTime(progress.elapsed_time)}</p>
-                                <p>{progress.current_run + 1}</p>
+                                <p>{progress.current_run}</p>
                             </div>
                         </div>
                         <div>
@@ -475,7 +575,7 @@ const Home = () => {
                             <p>
                                 {Array.isArray(progress.all_best_fitness)
                                 ? progress.all_best_fitness.join(", ")
-                                : progress.all_best_fitness ?? ""}
+                                : progress.all_best_fitness ?? "Menunggu data..."}
                             </p>
 
                             <p>
@@ -486,11 +586,26 @@ const Home = () => {
                             </p>
                         </div>
                     </div>
-                    <div className="flex justify-end pt-10">
-                        {/* <button onClick={() => onSaveClick(scheduleData)}>simpan</button> */}
-                        <button className="rounded-md border border-transparent px-4 py-2 text-base font-medium text-black bg-white transition-colors duration-200 shadow hover:border-blue-600 focus:outline-none" disabled={!isFInished} onClick={() => {setIsOpen(true); setIsRunning(false)}}>mulai lagi</button>
-                        <button onClick={() => handleStop()}>Berhenti</button>
-                        <button className="rounded-md border border-transparent px-4 py-2 text-base font-medium text-black bg-white transition-colors duration-200 shadow hover:border-blue-600 focus:outline-none" onClick={() => setIsRunning(false)}>kembali</button>
+                    <div className="flex justify-end gap-2 pt-10">
+                        <button 
+                            className="rounded-md border border-transparent px-4 py-2 text-base font-medium text-black bg-blue-200 transition-colors duration-200 shadow hover:border-blue-600 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed" 
+                            disabled={!isFinished} 
+                            onClick={() => {setIsOpen(true); setStatusModal(false)}}
+                        >
+                            mulai lagi
+                        </button>
+                        <button 
+                            className="rounded-md border border-transparent px-4 py-2 text-base font-medium text-white bg-red-500 transition-colors duration-200 shadow hover:bg-red-600 focus:outline-none"
+                            onClick={handleStop}
+                        >
+                            Berhenti
+                        </button>
+                        <button 
+                            className="rounded-md border border-transparent px-4 py-2 text-base font-medium text-black bg-gray-200 transition-colors duration-200 shadow hover:border-blue-600 focus:outline-none" 
+                            onClick={() => setStatusModal(false)}
+                        >
+                            kembali
+                        </button>
                     </div>
                 </div>
             </div>

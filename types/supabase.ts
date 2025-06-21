@@ -104,7 +104,6 @@ export type Database = {
           id_hari: number | null
           id_kelas: number
           id_matkul: number
-          id_ruangan: number | null
           id_waktu: number
           jam_akhir: number | null
           jam_mulai: number | null
@@ -114,16 +113,15 @@ export type Database = {
         Insert: {
           create_at?: string
           id?: number
-          id_dosen: number
+          id_dosen?: number
           id_hari?: number | null
-          id_kelas: number
-          id_matkul: number
-          id_ruangan?: number | null
-          id_waktu: number
+          id_kelas?: number
+          id_matkul?: number
+          id_waktu?: number
           jam_akhir?: number | null
           jam_mulai?: number | null
-          prodi: number
-          semester: number
+          prodi?: number
+          semester?: number
         }
         Update: {
           create_at?: string
@@ -132,7 +130,6 @@ export type Database = {
           id_hari?: number | null
           id_kelas?: number
           id_matkul?: number
-          id_ruangan?: number | null
           id_waktu?: number
           jam_akhir?: number | null
           jam_mulai?: number | null
@@ -216,6 +213,36 @@ export type Database = {
           id?: number
           kode?: string | null
           nama?: string | null
+        }
+        Relationships: []
+      }
+      konfigurasi: {
+        Row: {
+          created_at: string
+          id: number
+          jadwal: boolean
+          menejemen_jadwal: boolean
+          menejemen_kurikulum: boolean
+          menejemen_preferensi: boolean
+          tahun: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          jadwal?: boolean
+          menejemen_jadwal?: boolean
+          menejemen_kurikulum?: boolean
+          menejemen_preferensi?: boolean
+          tahun?: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          jadwal?: boolean
+          menejemen_jadwal?: boolean
+          menejemen_kurikulum?: boolean
+          menejemen_preferensi?: boolean
+          tahun?: string
         }
         Relationships: []
       }

@@ -4,51 +4,46 @@
 import InsertModal from '@/components/kaprodi/kurikulum/InsertModal';
 import DeleteModal from '@/components/kaprodi/kurikulum/DeleteModal';
 import UpdateModal from '@/components/kaprodi/kurikulum/UpdateModal';
-import { useRealtime } from '@/components/hook/useRealtimeCourses';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useUser } from '@/app/context/UserContext';
+import type { Tables } from '@/types/supabase';
+import { useSupabaseTableData } from '@/components/hook/useTableData';
 
-type Course = {
-    id: number;
-    kode: number;
-    nama: string;
-    sks: number;
-    semester: number;
-};
+type Course = Tables<'mata_kuliah'>;
+type CoursePartial = Pick<Course, 'id' | 'kode' | 'nama' | 'sks' | 'semester'>;
 
 const Home = () => {
-
 	const [activeSemester, setActiveSemester] = useState<number | null>(1);
-	const [isOpen, setIsOpen] = useState(0)
-	const [selected, setSelected] = useState<Course>({
-		id: 0, kode: 0, nama: '', sks: 0, semester: 0
-	})
+	const [isOpen, setIsOpen] = useState(0);
+	const [selected, setSelected] = useState<CoursePartial>({ id: 0, kode: 0, nama: '', sks: 0, semester: 0 });
 
 	const user = useUser();
+	const prodi = user.prodi;
 
-	const prodi = user.prodi
-	
-	const { data = [], loading } = useRealtime('mata_kuliah', {
-		select: '*',
-		filters: [{ column: 'prodi', value: prodi }],
-		orderBy: { column: 'id', ascending: true },
-	});
-	
-	  // Filter data berdasarkan pencarian
-	const filteredData = data.filter((item) =>
-		activeSemester === null || item.semester === activeSemester
+	const filtersMatkul = useMemo(
+	() => [
+		{ column: 'prodi', value: prodi },
+		{ column: 'semester', value: activeSemester }
+	],
+	[prodi, activeSemester]
 	);
 
-	const prodiMap: Record<number, string> = {
-		1: "Mesin",
-		2: "Komputer",
-		3: "Industri",
-		4: "Informatika",
-		5: "DKV"
-	};
+	const { data, loading, refetch } = useSupabaseTableData<Tables<'mata_kuliah'>>(
+		'mata_kuliah', { filters: filtersMatkul }
+	);
 	
-	const getprodi = (id: number) => prodiMap[id] || "";
- 
+  	const totalSKS = useMemo(() => {return data.reduce((total, item) => total + item.sks, 0);}, [data]);
+
+	const prodiMap: Record<number, string> = {
+		1: 'Mesin',
+		2: 'Komputer',
+		3: 'Industri',
+		4: 'Informatika',
+		5: 'DKV',
+	};
+
+	const getprodi = (id: number) => prodiMap[id] || '';
+
 	return (
 		<div className="h-full w-full flex flex-col items-center gap-5 text-[#333] xl:text-xl">
 			<div className="w-full flex flex-col items-center xl:text-2xl pt-5">
@@ -61,10 +56,11 @@ const Home = () => {
 						{Array.from({ length: 8 }, (_, index) => {
 							const semester = index + 1;
 							return (
-							<button key={semester} onClick={() => setActiveSemester(semester)}
-									className={`px-2 py-2 rounded-md transition-colors ${activeSemester === semester ? 'bg-[#cefdc2]' : 'bg-[#E9E9E9] hover:bg-gray-300'}`}>
-							Semester {semester}
-							</button>);
+								<button key={semester} onClick={() => setActiveSemester(semester)}
+								className={`px-2 py-2 rounded-md transition-colors ${activeSemester === semester ? 'bg-[#cefdc2]' : 'bg-[#E9E9E9] hover:bg-gray-300'}`}>
+								Semester {semester}
+								</button>
+							);
 						})}
 					</div>
 					<div className='w-full bg-[#cefdc2] rounded-md '>
@@ -83,9 +79,9 @@ const Home = () => {
 						? Array(5)
 							.fill(0)
 							.map((_, index) => (
-								<div key={index} className="grid grid-cols-4 py-2 bg-gray-300 rounded-md animate-pulse text-gray-300">loading</div>
+							<div key={index} className="grid grid-cols-4 py-2 bg-gray-300 rounded-md animate-pulse text-gray-300">loading</div>
 							))
-						: filteredData.map((item, index) => (
+						: data.map((item, index) => (
 							<div key={index} className='flex flex-col gap-3'>
 								<div className="w-full flex lowercase cursor-pointer gap-3">
 									<div className='w-10/12 grid grid-cols-[5rem,10rem,1fr,5rem] rounded-md gap-3 bg-[#F4F4F4] hover:bg-gray-300 py-2'>
@@ -93,35 +89,33 @@ const Home = () => {
 										<div className="">{item.kode}</div>
 										<div className="">{item.nama}</div>
 										<div className="text-center">{item.sks}</div>
-										{/* <div className="text-center">{item.semester}</div> */}
 									</div>
-									
+
 									<div className='flex flex-1 gap-3'>
-										<button onClick={() => {setIsOpen(2); setSelected(item)}} className={`w-full bg-[#E9E9E9] rounded hover:bg-gray-300 transition-colors`}> Edit </button>
-										<button onClick={() => {setIsOpen(3); setSelected(item)}} className={`w-full bg-[#ffbcbc] rounded hover:bg-[#e0a4a4] transition-colors`}> Hapus </button>									
+										<button onClick={() => { setIsOpen(2); setSelected(item); }} className={`w-full bg-[#E9E9E9] rounded hover:bg-gray-300 transition-colors`}> Edit </button>
+										<button onClick={() => { setIsOpen(3); setSelected(item); }} className={`w-full bg-[#ffbcbc] rounded hover:bg-[#e0a4a4] transition-colors`}> Hapus </button>
 									</div>
 								</div>
-								<div className='h-[1px] bg-[#C1C1C1]'/>
+							<div className='h-[1px] bg-[#C1C1C1]' />
 							</div>
-						))}	
+						))}
 					</div>
 					<div className="w-full flex gap-3 py-3">
 						<div className='w-10/12 grid grid-cols-[1fr,5rem] items-center'>
 							<div className='flex justify-center'>
 								<button className={`px-4 py-2 rounded-md bg-[#E9E9E9] hover:bg-gray-300`} onClick={() => setIsOpen(1)}>Tambah</button>
 							</div>
-							<div className='text-center'>20</div>
+							<div className='text-center'>{totalSKS}</div>
 						</div>
 						<button className='flex-1 py-2 rounded-md bg-[#E9E9E9] hover:bg-gray-300'>Selesai</button>
 					</div>
 				</div>
 			</div>
-				
-			<InsertModal prodi={prodi} open={isOpen === 1} onClose={() => setIsOpen(0)}/>
-			<UpdateModal course={selected} open={isOpen === 2} onClose={() => setIsOpen(0)} />
-			<DeleteModal id={selected.id} open={isOpen === 3} onClose={() => setIsOpen(0)} />	
+
+			<InsertModal prodi={prodi} open={isOpen === 1} onClose={() => setIsOpen(0)} onSuccess={refetch}/>
+			<UpdateModal course={selected} open={isOpen === 2} onClose={() => setIsOpen(0)} onSuccess={refetch}/>
+			<DeleteModal id={selected.id} open={isOpen === 3} onClose={() => setIsOpen(0)} onSuccess={refetch}/>
 		</div>
-		
 	);
 };
 

@@ -6,12 +6,21 @@ interface Props {
     open: boolean;
     id: number;
     onClose: () => void;
+    onSuccess: () => void;
 }
 
-const DeleteCourseModal = ({ open, id, onClose }: Props) => {
+const DeleteCourseModal = ({ open, id, onClose , onSuccess}: Props) => {
 
     const handleDelete = async () => {
-        await deleteData({ table: 'mata_kuliah', id });
+        const result = await deleteData({ table: 'mata_kuliah', id });
+
+        if (result.success) {
+			console.log('Course deleted:', result);
+			onSuccess();
+			onClose();
+		} else {
+			console.error('Error inserting course:', result.message);
+		}
     };
 
     return open ? (
@@ -23,7 +32,7 @@ const DeleteCourseModal = ({ open, id, onClose }: Props) => {
                     <button onClick={onClose} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400" >
                         Tidak
                     </button>
-                    <button onClick={() => {handleDelete(); onClose()}} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600" >
+                    <button onClick={() => handleDelete()} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600" >
                         Ya
                     </button>
                 </div>

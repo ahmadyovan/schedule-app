@@ -6,49 +6,24 @@ type Filter = {
 
 interface FetchParams {
   table: string;
-  selectFields: string;
+  selectFields?: string;
   filters?: Filter[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  setData: (data: any) => void;
-  setLoading?: (loading: boolean) => void;
-}
+};
 
-export const fetchFromApi = async ({
-  table,
-  selectFields,
-  filters,
-  setData,
-  setLoading,
-}: FetchParams) => {
-  try {
-    if (setLoading) setLoading(true);
+export const fetchFromApi = async ({ table, selectFields = '*', filters = [] }: FetchParams) => {
+  const response = await fetch('/api/get-data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ table, selectFields, filters }),
+  });
 
-    const res = await fetch('/api/get-data', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        table,
-        selectFields,
-        filters,
-      }),
-    });
+  const json = await response.json();
 
-    const json = await res.json();
-
-    if (json.success) {
-      setData(json.data);
-    } else {
-      console.error(`Gagal ambil data dari ${table}:`, json.message);
-    }
-  } catch (err) {
-    console.log('error', err);
-    
-    console.error(`Error saat fetch ${table}:`, err);
-  } finally {
-    if (setLoading) setLoading(false);
+  if (!json.success) {
+    console.error(`Gagal fetch dari ${table}:`, json.message);
   }
+
+  return json;
 };
 
 interface InsertParams {

@@ -150,6 +150,7 @@ const Penjadwalan = () => {
 				alert('Gagal menyimpan preferensi waktu');
 			} else {
 				alert('Preferensi waktu berhasil disimpan!');
+				setIsOpen(0)
 			}
 
 			// Siapkan data preferensi mata kuliah
@@ -168,6 +169,7 @@ const Penjadwalan = () => {
 				alert('Gagal menyimpan preferensi matkul');
 			} else {
 				alert('Preferensi matkul berhasil disimpan!');
+				setIsOpen(0)
 			}
 		} catch (error) {
 			console.error('Unexpected error:', error);

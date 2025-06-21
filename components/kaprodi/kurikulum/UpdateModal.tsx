@@ -15,10 +15,10 @@ type Props = {
     open: boolean;
     course: Course;
     onClose: () => void;
+    onSuccess: () => void;
 };
 
-const UpdateModal = ({ open, course, onClose }: Props) => {
-
+const UpdateModal = ({ open, course, onClose, onSuccess }: Props) => {
 
     // State untuk input form
     const [formData, setFormData] = useState<Course>({ 
@@ -64,6 +64,7 @@ const UpdateModal = ({ open, course, onClose }: Props) => {
 
         if (result.success) {
             console.log('Berhasil update:', result);
+            onSuccess();
             onClose();
         } else {
             console.error('Gagal update:', result.message);
