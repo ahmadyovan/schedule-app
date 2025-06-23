@@ -216,16 +216,17 @@ const Home = () => {
     });
 
     // Setup SSE
+    console.log(`🌐 Connecting to SSE at ${API_URL}/status`);
     const es = new EventSource(`${API_URL}/status`);
     eventSourceRef.current = es;
 
     es.onopen = () => {
-        console.log('✅ Connected to SSE');
+        console.log('✅ SSE connection established');
         setConnectionStatus('connected');
     };
 
     es.onerror = (err) => {
-        console.error('❌ SSE error:', err);
+        console.error('❌ SSE connection error:', err);
         setError('Koneksi SSE gagal');
         es.close();
         setConnectionStatus('error');
@@ -235,13 +236,15 @@ const Home = () => {
 
     es.addEventListener('status', (event) => {
         if (shouldStopRef.current) {
-            console.log('🛑 Ignoring SSE message - optimization stopped');
+            console.log('🛑 Ignoring incoming SSE message (optimization stopped)');
             return;
         }
 
+        console.log('📨 Received SSE message:', event.data);
+
         try {
             const data = JSON.parse(event.data);
-            console.log('📩 SSE progress:', data);
+            console.log('📊 Parsed SSE data:', data);
 
             setProgress((prev) => {
                 const updated = { ...prev, ...data };
@@ -249,7 +252,7 @@ const Home = () => {
             });
 
             if (data.is_finished) {
-                console.log('🏁 Optimization finished via SSE');
+                console.log('🏁 Optimization reported as finished via SSE');
                 setIsRunning(false);
                 setIsFinished(true);
                 isOptimizingRef.current = false;
@@ -258,7 +261,7 @@ const Home = () => {
                 setConnectionStatus('disconnected');
             }
         } catch (err) {
-            console.error('❌ Failed to parse SSE data:', err);
+            console.error('❌ JSON.parse error on SSE data:', err, '\nRaw data:', event.data);
         }
     });
 
@@ -296,6 +299,8 @@ const Home = () => {
 
         const result = await response.json();
         console.log('✅ Optimization started, waiting for updates...');
+        console.log('hasil optimasi', result);
+        
         return result;
     };
 

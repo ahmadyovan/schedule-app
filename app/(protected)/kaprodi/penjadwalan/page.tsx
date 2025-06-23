@@ -257,11 +257,15 @@ const Home = () => {
 
 
 	const handleAssignDosen = async (dosen: number) => {
-		if (!dosen || !selectedMatkul || !action || !action.id) return;
+		console.log('log', dosen, selectedMatkul, action);
+		if (!dosen || !selectedMatkul || !action) return;
+
+		
+		
 
 		let success = false;
 
-		if (action.state === 'update' && action.id !== 0) {
+		if (action.state === 'update' && action.id !== null) {
 			success = await updateJadwalDosen(dosen, action.id);
 		} else {
 			success = await insertJadwalDosen(dosen);

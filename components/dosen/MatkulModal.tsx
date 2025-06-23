@@ -33,7 +33,7 @@ const MatkulModal = ({ isOpen, onResult, onClose }: Props) => {
 	);
 
   const { data: raw_prodi } = useSupabaseTableData<Tables<'prodi'>>(
-		'prodi', { filters: filtersMatkul }
+		'prodi'
 	);
 	
 
