@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import MatkulModal from "@/components/dosen/MatkulModal";
 import TimeModal from "@/components/dosen/TimeModal";
 import { useUser } from "@/app/context/UserContext";
-import { insertData } from "@/utils/functions";
+import { fetchFromApi, insertData } from "@/utils/functions";
 
 type MatkulType = {
     id: number;
@@ -48,12 +48,30 @@ const Penjadwalan = () => {
 
     const [items, setItems] = useState<MatkulType[]>([]);
 	const [totalSKS, setTotalSKS] = useState<number>(0);
+	const [dosen, set_dosen] = useState<number>(0);
 
 	const [isOpen, setIsOpen] = useState(0)
 
 	const user = useUser();
 
-	const dosenID = user.id
+	const UID = user.uid
+
+	useEffect(() => {
+		const fetchDosen = async () => {
+			const response = await fetchFromApi({
+				table: 'dosen',
+				selectFields: 'id',
+				filters: [{column: 'uid',value: UID}]
+			});
+			if (response?.data[0].id) set_dosen(response.data[0].id);
+		};
+
+		
+		
+
+		fetchDosen();
+	}, [UID])
+	console.log('dosen', dosen);
 
 	const calculateTotalSKS = useCallback((data: MatkulType[]) => {
 		const total = data.reduce((sum, item) => sum + item.sks, 0);
@@ -119,7 +137,7 @@ const Penjadwalan = () => {
 	const handleSaveSchedule = async (times: TimeSlotArray) => {
 		try {
 			const newSchedule: TimePreferrence = {
-				id_dosen: dosenID,
+				id_dosen: dosen,
 				senin_pagi: true,
 				senin_malam: true,
 				selasa_pagi: true,
@@ -156,7 +174,7 @@ const Penjadwalan = () => {
 			// Siapkan data preferensi mata kuliah
 			const prevMatkul = items.map((item) => ({
 				id_matkul: item.id,
-				id_dosen: dosenID,
+				id_dosen: dosen,
 			}));
 
 			// Simpan preferensi matkul ke tabel 'prefMatkul'

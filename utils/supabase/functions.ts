@@ -4,7 +4,8 @@ import { createClient } from "@/utils/supabase/server";
 
 type Filter = {
   column: string;
-  value: string | number | boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  value: any;
 };
 
 export async function getUser(userId: string) {
