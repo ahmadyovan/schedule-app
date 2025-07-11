@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from "@/utils/supabase/client";
+import { updateData } from '@/utils/functions';
 
 const supabase = createClient();
 
@@ -48,9 +49,38 @@ type OptimizationProgress = {
     is_finished: boolean;
 };
 
+type OptimizedSchedule = {
+    id_jadwal: number;
+    prodi: number;
+    semester: number;
+    mata_kuliah: number;
+    sks: number;
+    dosen: number;
+    hari: number;
+    jam_mulai: number;
+    jam_akhir: number;
+    kelas: number;
+    ruangan: number;
+};
+
+type ScheduleConflict = {
+  deskripsi: string;
+  jadwal_a: number;
+  jadwal_b: number;
+};
+
+type PreferenceConflict = {
+  deskripsi: string;
+  id_dosen: number;
+  id_jadwal: number;
+  hari: number;
+  jam_mulai: number;
+};
+
+type ConflictMessage = [ScheduleConflict[], PreferenceConflict[]];
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 // const API_WS_URL = process.env.NEXT_PUBLIC_API_WS_URL;
-
 // const API_URL = 'http://localhost:8000';
 
 const Home = () => {
@@ -114,9 +144,6 @@ const Home = () => {
                 };
             });
 
-
-            console.log(prefData);
-
             const cleanedPrefData: PrefData[] = prefData.map((item) => ({
                 id: item.id,
                 id_dosen: item.id_dosen ?? 0,
@@ -144,6 +171,73 @@ const Home = () => {
     useEffect(() => {
         fetchData();
     }, []);
+
+     const insertConflictList = async (message: ConflictMessage) => {
+        const [scheduleConflicts, preferenceConflicts] = message;
+
+        const conflictData = [
+            ...scheduleConflicts.map((item) => ({
+            deskripsi: item.deskripsi,
+            jadwal_a: item.jadwal_a,
+            jadwal_b: item.jadwal_b,
+            id_dosen: null,
+            id_jadwal: null,
+            hari: null,
+            })),
+            ...preferenceConflicts.map((item) => ({
+            deskripsi: item.deskripsi,
+            jadwal_a: null,
+            jadwal_b: null,
+            id_dosen: item.id_dosen,
+            id_jadwal: item.id_jadwal,
+            hari: item.hari,
+            })),
+        ];
+
+        await supabase
+  .from('conflicts')
+  .delete()
+  .not('id', 'is', null);
+        const { data, error } = await supabase.from('conflicts').insert(conflictData);
+
+        if (error) {
+            console.error('Gagal insert konflik:', error.message);
+        } else {
+            console.log('Berhasil insert konflik:', data);
+        }
+    };
+
+    const updateScheduleData = async (
+        optimizedSchedule: OptimizedSchedule[],
+        ): Promise<void> => {
+        for (const existingItem of scheduleData) {
+            const optimizedItem = optimizedSchedule.find((item) => item.id_jadwal === existingItem.id_jadwal);
+
+            if (optimizedItem) {
+                const result = await updateData({
+                    table: 'jadwal',
+                    payload: {
+                        id_hari: optimizedItem.hari,
+                        id_ruangan: optimizedItem.ruangan,
+                        jam_mulai: optimizedItem.jam_mulai,
+                        jam_akhir: optimizedItem.jam_akhir,
+                    },
+                    filters: [
+                    {
+                        column: 'id',
+                        value: existingItem.id_jadwal,
+                    },
+                    ],
+                });
+
+                if (!result.success) {
+                    console.error(`Gagal update jadwal untuk id ${existingItem.id_jadwal}`);
+                }
+            }
+        }
+
+        console.log("Semua data berhasil diperbarui!");
+    };
 
     // Cleanup saat component unmount
     useEffect(() => {
@@ -190,130 +284,131 @@ const Home = () => {
     }, []);
 
     const runOptimization = useCallback(async () => {
-    console.log('🚀 Starting optimization with SSE...');
+        console.log('🚀 Starting optimization with SSE...');
 
-    if (!scheduleData.length) {
-        setError('Data jadwal kosong');
-        return;
-    }
-
-    // Reset flags
-    shouldStopRef.current = false;
-    isOptimizingRef.current = true;
-    setError(null);
-    setIsRunning(true);
-    setIsFinished(false);
-    setConnectionStatus('connecting');
-
-    setProgress({
-        all_best_fitness: null,
-        best_fitness: 0,
-        current_run: 1,
-        elapsed_time: { secs: 0, nanos: 0 },
-        is_finished: false,
-        iteration: 0,
-        total_runs: params.num_runs || 1,
-    });
-
-    // Setup SSE
-    console.log(`🌐 Connecting to SSE at ${API_URL}/status`);
-    const es = new EventSource(`${API_URL}/status`);
-    eventSourceRef.current = es;
-
-    es.onopen = () => {
-        console.log('✅ SSE connection established');
-        setConnectionStatus('connected');
-    };
-
-    es.onerror = (err) => {
-        console.error('❌ SSE connection error:', err);
-        setError('Koneksi SSE gagal');
-        es.close();
-        setConnectionStatus('error');
-        setIsRunning(false);
-        isOptimizingRef.current = false;
-    };
-
-    es.addEventListener('status', (event) => {
-        if (shouldStopRef.current) {
-            console.log('🛑 Ignoring incoming SSE message (optimization stopped)');
+        if (!scheduleData.length) {
+            setError('Data jadwal kosong');
             return;
         }
 
-        console.log('📨 Received SSE message:', event.data);
+        // Reset flags
+        shouldStopRef.current = false;
+        isOptimizingRef.current = true;
+        setError(null);
+        setIsRunning(true);
+        setIsFinished(false);
+        setConnectionStatus('connecting');
 
-        try {
-            const data = JSON.parse(event.data);
-            console.log('📊 Parsed SSE data:', data);
-
-            setProgress((prev) => {
-                const updated = { ...prev, ...data };
-                return updated;
-            });
-
-            if (data.is_finished) {
-                console.log('🏁 Optimization reported as finished via SSE');
-                setIsRunning(false);
-                setIsFinished(true);
-                isOptimizingRef.current = false;
-
-                es.close();
-                setConnectionStatus('disconnected');
-            }
-        } catch (err) {
-            console.error('❌ JSON.parse error on SSE data:', err, '\nRaw data:', event.data);
-        }
-    });
-
-    // Start optimization via REST
-    const startOptimizationRequest = async () => {
-        const requestBody = {
-            courses: scheduleData,
-            time_preferences: preferenceData,
-            parameters: {
-                swarm_size: params.swarm_size,
-                max_iterations: params.max_iterations,
-                cognitive_weight: params.cognitive_weight,
-                social_weight: params.social_weight,
-                inertia_weight: params.inertia_weight,
-                num_runs: params.num_runs,
-            },
-        };
-
-        console.log('📤 Sending optimization request to REST API');
-        setStatusModal(true);
-
-        const response = await fetch(`${API_URL}/optimize`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
+        setProgress({
+            all_best_fitness: null,
+            best_fitness: 0,
+            current_run: 1,
+            elapsed_time: { secs: 0, nanos: 0 },
+            is_finished: false,
+            iteration: 0,
+            total_runs: params.num_runs || 1,
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
-        }
+        // Setup SSE
+        console.log(`🌐 Connecting to SSE at ${API_URL}/status`);
+        const es = new EventSource(`${API_URL}/status`);
+        eventSourceRef.current = es;
 
-        const result = await response.json();
-        console.log('✅ Optimization started, waiting for updates...');
-        console.log('hasil optimasi', result);
+        es.onopen = () => {
+            console.log('✅ SSE connection established');
+            setConnectionStatus('connected');
+        };
+
+        es.onerror = (err) => {
+            console.error('❌ SSE connection error:', err);
+            setError('Koneksi SSE gagal');
+            es.close();
+            setConnectionStatus('error');
+            setIsRunning(false);
+            isOptimizingRef.current = false;
+        };
+
+        es.addEventListener('status', (event) => {
+            if (shouldStopRef.current) {
+                console.log('🛑 Ignoring incoming SSE message (optimization stopped)');
+                return;
+            }
+
+            console.log('📨 Received SSE message:', event.data);
+
+            try {
+                const data = JSON.parse(event.data);
+                console.log('📊 Parsed SSE data:', data);
+
+                setProgress((prev) => {
+                    const updated = { ...prev, ...data };
+                    return updated;
+                });
+
+                if (data.is_finished) {
+                    console.log('🏁 Optimization reported as finished via SSE');
+                    setIsRunning(false);
+                    setIsFinished(true);
+                    isOptimizingRef.current = false;
+
+                    es.close();
+                    setConnectionStatus('disconnected');
+                }
+            } catch (err) {
+                console.error('❌ JSON.parse error on SSE data:', err, '\nRaw data:', event.data);
+            }
+        });
+
+        // Start optimization via REST
+
+        const startOptimizationRequest = async () => {
+            const requestBody = {
+                courses: scheduleData,
+                time_preferences: preferenceData,
+                parameters: {
+                    swarm_size: params.swarm_size,
+                    max_iterations: params.max_iterations,
+                    cognitive_weight: params.cognitive_weight,
+                    social_weight: params.social_weight,
+                    inertia_weight: params.inertia_weight,
+                    num_runs: params.num_runs,
+                },
+            };
+            console.log('📤 Sending optimization request to REST API');
+            setStatusModal(true);
+            const response = await fetch(`${API_URL}/optimize`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify(requestBody),
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            const result = await response.json();
+            console.log('✅ Optimization started, waiting for updates...');
+            updateScheduleData(result.schedule)
+            insertConflictList(result.message)
+            console.log('hasil optimasi', result);
+            
+            return result;
+        };
+
         
-        return result;
-    };
 
-    try {
-        await startOptimizationRequest();
-    } catch (err) {
-        console.error('❌ Failed to start optimization:', err);
-        setError('Gagal memulai optimasi');
-        setIsRunning(false);
-        es.close();
-        setConnectionStatus('disconnected');
-    }
-}, [scheduleData, preferenceData, params]);
+        try {
+            await startOptimizationRequest();
+        } catch (err) {
+            console.error('❌ Failed to start optimization:', err);
+            setError('Gagal memulai optimasi');
+            setIsRunning(false);
+            es.close();
+            setConnectionStatus('disconnected');
+        }
+    }, [scheduleData, preferenceData, params]);
 
     const getAverage = (arr: number[]): number => {
         if (arr.length === 0) return 0;

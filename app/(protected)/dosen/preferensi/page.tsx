@@ -66,9 +66,6 @@ const Penjadwalan = () => {
 			if (response?.data[0].id) set_dosen(response.data[0].id);
 		};
 
-		
-		
-
 		fetchDosen();
 	}, [UID])
 	console.log('dosen', dosen);
@@ -247,9 +244,7 @@ const Penjadwalan = () => {
 							
 							<button onClick={() => setIsOpen(2)} className='flex-1 py-2 rounded-md bg-[#E9E9E9] hover:bg-gray-300'>tentukan waktu</button>
 						</div>
-						
                     </div>
-
 					<MatkulModal isOpen={isOpen == 1} onResult={(matkul: MatkulType) => {addItem(matkul)}} onClose={() => setIsOpen(0)}/>
                     <TimeModal isOpen={isOpen == 2} onResult={(times: TimeSlotArray) => handleSaveSchedule(times)} onClose={() => setIsOpen(0)} />
                 </div>

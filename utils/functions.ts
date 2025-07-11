@@ -106,3 +106,103 @@ export const deleteData = async ({ table, id, key = 'id' }: DeleteParams) => {
   }
 };
 
+
+// evaluate schedule
+
+
+// Versi JavaScript dari evaluasi jadwal Rust
+
+function isOverlap(a: { jam_mulai: number; jam_akhir: number; }, b: { jam_akhir: number; jam_mulai: number; }) {
+  return a.jam_mulai < b.jam_akhir && b.jam_mulai < a.jam_akhir;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function evaluateSchedule(schedule: any, timePreferences: any) {
+  const totalMessages = [];
+  let totalPenalty = 0;
+  const checkedPairs = new Set();
+  const timePrefMap = new Map();
+  for (const pref of timePreferences) {
+    timePrefMap.set(pref.id_dosen, pref);
+  }
+
+  const oddSemester = schedule.filter((c: { semester: number; }) => c.semester % 2 === 1);
+  const evenSemester = schedule.filter((c: { semester: number; }) => c.semester % 2 === 0);
+
+  for (const group of [oddSemester, evenSemester]) {
+    for (let i = 0; i < group.length; i++) {
+      const a = group[i];
+
+      // Cek konflik antar dosen
+      for (let j = i + 1; j < group.length; j++) {
+        const b = group[j];
+
+        if (a.hari !== b.hari || !isOverlap(a, b)) continue;      
+        
+        if (a.id_dosen === b.id_dosen) {
+          const key = `${Math.min(a.id, b.id)}-${Math.max(a.id, b.id)}`;
+          if (!checkedPairs.has(key)) {
+            checkedPairs.add(key);
+            totalPenalty += 100;
+
+            totalMessages.push({
+              type: 'Conflict',
+              id: a.id,
+              deskripsi: `Konflik dosen antara jadwal ${a.id} dan ${b.id} pada hari ke-${a.hari} antara ${formatTime(a.jam_mulai)}-${formatTime(a.jam_akhir)} dan ${formatTime(b.jam_mulai)}-${formatTime(b.jam_akhir)}`
+            });
+          }
+        }
+      }
+
+      // Cek preferensi waktu
+      const pref = timePrefMap.get(a.id_dosen);
+      if (pref) {
+        const hariIdx = a.hari - 1;
+        const isPagi = a.jam_mulai < 1080;
+        const preferensi = isPagi
+          ? [pref.senin_pagi, pref.selasa_pagi, pref.rabu_pagi, pref.kamis_pagi, pref.jumat_pagi][hariIdx]
+          : [pref.senin_malam, pref.selasa_malam, pref.rabu_malam, pref.kamis_malam, pref.jumat_malam][hariIdx];
+
+        if (!preferensi) {
+          totalPenalty += 100;
+          const hariStr = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'][hariIdx] || 'Tidak Dikenal';
+          const waktuStr = isPagi ? 'pagi' : 'malam';
+
+          totalMessages.push({
+            type: 'Preference',
+            id_jadwal: a.id,
+            id_dosen: a.id_dosen,
+            hari: a.hari,
+            jam_mulai: a.jam_mulai,
+            deskripsi: `Dosen ${a.id_dosen} tidak prefer jadwal ${hariStr} ${waktuStr}.`
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    total_penalty: totalPenalty,
+    messages: totalMessages,
+  };
+}
+
+function formatTime(menit: number) {
+  const jam = Math.floor(menit / 60).toString().padStart(2, '0');
+  const mnt = (menit % 60).toString().padStart(2, '0');
+  return `${jam}:${mnt}`;
+}
+
+// Export juga fungsi untuk memisahkan pesan berdasarkan tipe
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function splitEvaluationMessages(messages: any) {
+  const conflicts = [];
+  const preferences = [];
+
+  for (const msg of messages) {
+    if (msg.type === 'Conflict') conflicts.push(msg);
+    else if (msg.type === 'Preference') preferences.push(msg);
+  }
+
+  return { conflicts, preferences };
+}

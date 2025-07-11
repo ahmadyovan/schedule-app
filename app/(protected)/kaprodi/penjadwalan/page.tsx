@@ -260,9 +260,6 @@ const Home = () => {
 		console.log('log', dosen, selectedMatkul, action);
 		if (!dosen || !selectedMatkul || !action) return;
 
-		
-		
-
 		let success = false;
 
 		if (action.state === 'update' && action.id !== null) {

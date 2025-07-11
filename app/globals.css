@@ -18,6 +18,23 @@
   }
 }
 
+.scrollbar-visible {
+  scrollbar-width: auto; /* Firefox */
+  -ms-overflow-style: auto; /* IE 10+ */
+
+  /* Chrome/Safari/WebKit */
+}
+.scrollbar-visible::-webkit-scrollbar {
+  width: 8px;
+}
+.scrollbar-visible::-webkit-scrollbar-thumb {
+  background-color: #888;
+  border-radius: 4px;
+}
+.scrollbar-visible::-webkit-scrollbar-track {
+  background-color: #f1f1f1;
+}
+
 body {
   color: var(--foreground);
   background: var(--background);

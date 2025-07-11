@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { get_single_data } from './functions'
 import { resolveRedirectPath } from '@/utils/auth/redirect-by-role' // path sesuaikan
 
-const PUBLIC_ROUTES = ['/sign-in', '/signup', '/forgot-password', '/reset-password', '/not-authorized']
+const PUBLIC_ROUTES = ['/sign-in', '/signup', '/forgot-password', '/reset-password', '/not-authorized', '/jadwal']
 const AUTH_ROUTES = ['/sign-in', '/signup']
 
 export async function updateSession(request: NextRequest) {
