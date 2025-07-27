@@ -1,7 +1,11 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from "@/utils/supabase/client";
-import { updateData } from '@/utils/functions';
+import { insertData, updateData } from '@/utils/functions';
+import { Tables } from '@/types/supabase';
+import { useSupabaseTableData } from '@/components/hook/useTableData';
+import RoomModal from '@/components/admin/room_modal';
+import { log } from 'console';
 
 const supabase = createClient();
 
@@ -80,8 +84,6 @@ type PreferenceConflict = {
 type ConflictMessage = [ScheduleConflict[], PreferenceConflict[]];
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-// const API_WS_URL = process.env.NEXT_PUBLIC_API_WS_URL;
-// const API_URL = 'http://localhost:8000';
 
 const Home = () => {
     const [preferenceData, setPreferenceData] = useState<PrefData[]>([]);
@@ -89,17 +91,19 @@ const Home = () => {
     const [isRunning, setIsRunning] = useState(false);
     const [scheduleData, setScheduleData] = useState<ScheduleItem[]>([]);
     const [isFinished, setIsFinished] = useState<boolean>(false);
+    const [ruanganModal, setRuanganModal] = useState<boolean>(false);
     const [statusModal, setStatusModal] = useState<boolean>();
     const [error, setError] = useState<string | null>(null);
     const [connectionStatus, setConnectionStatus] = useState<string>('disconnected');
     const eventSourceRef = useRef<EventSource | null>(null);
+    const [sum_ruangan, setSumRuangan] = useState<number>(25);
+    const [num_runs, setNumRuns] = useState<number>(1);
     const [params, setParams] = useState({
         swarm_size: 30,
         max_iterations: 100,
         cognitive_weight: 2.0,
         social_weight: 2.0,
         inertia_weight: 0.7,
-        num_runs: 1,
     });
     
     const [progress, setProgress] = useState<OptimizationProgress>({
@@ -112,7 +116,6 @@ const Home = () => {
         total_runs: null,
     });
 
-    // Refs untuk optimization session
     const optimizationSocketRef = useRef<WebSocket | null>(null);
     const isOptimizingRef = useRef(false);
     const shouldStopRef = useRef(false);
@@ -140,7 +143,7 @@ const Home = () => {
                     id_kelas: item.id_kelas,
                     semester: item.semester,
                     sks: mataKuliah?.sks ?? 0,
-                    prodi: mataKuliah?.prodi ?? 0, // pakai 0 sebagai default prodi
+                    prodi: mataKuliah?.prodi ?? 0, 
                 };
             });
 
@@ -168,45 +171,16 @@ const Home = () => {
         }
     };
 
+    const { data: data_ruangan, loading } = useSupabaseTableData<Tables<'ruangan'>>(
+        'ruangan',
+    );
+    console.log('jumlah Ruangan:', sum_ruangan);
+
     useEffect(() => {
         fetchData();
     }, []);
 
-     const insertConflictList = async (message: ConflictMessage) => {
-        const [scheduleConflicts, preferenceConflicts] = message;
-
-        const conflictData = [
-            ...scheduleConflicts.map((item) => ({
-            deskripsi: item.deskripsi,
-            jadwal_a: item.jadwal_a,
-            jadwal_b: item.jadwal_b,
-            id_dosen: null,
-            id_jadwal: null,
-            hari: null,
-            })),
-            ...preferenceConflicts.map((item) => ({
-            deskripsi: item.deskripsi,
-            jadwal_a: null,
-            jadwal_b: null,
-            id_dosen: item.id_dosen,
-            id_jadwal: item.id_jadwal,
-            hari: item.hari,
-            })),
-        ];
-
-        await supabase
-  .from('conflicts')
-  .delete()
-  .not('id', 'is', null);
-        const { data, error } = await supabase.from('conflicts').insert(conflictData);
-
-        if (error) {
-            console.error('Gagal insert konflik:', error.message);
-        } else {
-            console.log('Berhasil insert konflik:', data);
-        }
-    };
-
+    
     const updateScheduleData = async (
         optimizedSchedule: OptimizedSchedule[],
         ): Promise<void> => {
@@ -283,7 +257,7 @@ const Home = () => {
         setConnectionStatus('disconnected');
     }, []);
 
-    const runOptimization = useCallback(async () => {
+    const runOptimization = useCallback(async (ruang: number) => {
         console.log('🚀 Starting optimization with SSE...');
 
         if (!scheduleData.length) {
@@ -306,7 +280,7 @@ const Home = () => {
             elapsed_time: { secs: 0, nanos: 0 },
             is_finished: false,
             iteration: 0,
-            total_runs: params.num_runs || 1,
+            total_runs: num_runs || 1,
         });
 
         // Setup SSE
@@ -361,7 +335,7 @@ const Home = () => {
 
         // Start optimization via REST
 
-        const startOptimizationRequest = async () => {
+        const startOptimizationRequest = async (ruang: number) => {
             const requestBody = {
                 courses: scheduleData,
                 time_preferences: preferenceData,
@@ -371,8 +345,9 @@ const Home = () => {
                     cognitive_weight: params.cognitive_weight,
                     social_weight: params.social_weight,
                     inertia_weight: params.inertia_weight,
-                    num_runs: params.num_runs,
                 },
+                num_runs: num_runs,
+                num_room: ruang,
             };
             console.log('📤 Sending optimization request to REST API');
             setStatusModal(true);
@@ -391,16 +366,13 @@ const Home = () => {
             const result = await response.json();
             console.log('✅ Optimization started, waiting for updates...');
             updateScheduleData(result.schedule)
-            insertConflictList(result.message)
             console.log('hasil optimasi', result);
             
             return result;
         };
 
-        
-
         try {
-            await startOptimizationRequest();
+            await startOptimizationRequest(ruang);
         } catch (err) {
             console.error('❌ Failed to start optimization:', err);
             setError('Gagal memulai optimasi');
@@ -434,7 +406,7 @@ const Home = () => {
     };
 
     return (
-        <div className="h-screen w-screen flex flex-col bg-white text-black">
+        <div className="h-full w-full flex flex-col bg-white text-black">
 		    <div className="h-full flex flex-col gap-5 pt-10 items-center">
 			    <h1 className="w-fit text-2xl">OPTIMASI JADWAL KULIAH</h1>
                 
@@ -451,10 +423,27 @@ const Home = () => {
                         <input 
                             className="bg-white outline-none shadow-[0_2px_2px_rgba(0,0,0,0.2)] px-4 py-2 rounded-md" 
                             type="number" 
-                            value={params.num_runs} 
-                            onChange={(e) => setParams({ ...params, num_runs: +e.target.value})} 
+                            value={num_runs} 
+                            onChange={(e) => setNumRuns(+e.target.value)} 
                             disabled={isRunning}
                         />
+                    </div>
+                    <div className="flex flex-col gap-2 items-center">
+                        <p>jumlah ruangan</p>
+                        <input 
+                            className="bg-white outline-none shadow-[0_2px_2px_rgba(0,0,0,0.2)] px-4 py-2 rounded-md" 
+                            type="number" 
+                            value={sum_ruangan} 
+                            onChange={(e) => setSumRuangan(+e.target.value)} 
+                            disabled={isRunning}
+                        />
+                        {/* <button 
+                            className="rounded-md border border-transparent px-4 py-2 text-base font-medium text-black bg-white transition-colors duration-200 shadow hover:border-blue-600 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed" 
+                            // onClick={() => setRuanganModal(true)}
+                            disabled={isRunning}
+                        >
+                            Lihat Ruangan
+                        </button> */}
                     </div>
                     <div className="w-full flex pt-8 justify-center">
                         <button 
@@ -487,7 +476,7 @@ const Home = () => {
                     <div className="flex justify-end gap-2 mt-4">
                         <button 
                             className="rounded-md border border-transparent px-4 py-2 text-base font-medium text-black bg-green-200 transition-colors duration-200 shadow hover:border-blue-600 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed" 
-                            onClick={() => {runOptimization(); setIsOpen(false)}}
+                            onClick={() => {runOptimization(sum_ruangan); setIsOpen(false)}}
                         >
                             Run Optimization
                         </button>
@@ -571,7 +560,6 @@ const Home = () => {
                                 ? progress.all_best_fitness.join(", ")
                                 : progress.all_best_fitness ?? "Menunggu data..."}
                             </p>
-
                             <p>
                                 Rata-rata:{" "}
                                 {Array.isArray(progress.all_best_fitness)
@@ -604,6 +592,8 @@ const Home = () => {
                 </div>
             </div>
             )}
+
+            {/* { data_ruangan && <RoomModal data={data_ruangan} onExit={(e) => setRuanganModal(e)}/> } */}
         
         </div>
     );

@@ -141,10 +141,23 @@ export function evaluateSchedule(schedule: any, timePreferences: any) {
 
       // Cek konflik antar dosen
       for (let j = i + 1; j < group.length; j++) {
-        const b = group[j];
+        const b = group[j];        
         
+        if (a.id_hari !== b.id_hari || !isOverlap(a, b)) continue;    
         
-        if (a.id_hari !== b.id_hari || !isOverlap(a, b)) continue;      
+        if (a.id_ruangan === b.id_ruangan) {
+          const key = `${Math.min(a.id, b.id)}-${Math.max(a.id, b.id)}`;
+          if (!checkedPairs.has(key)) {
+            checkedPairs.add(key);
+            totalPenalty += 100;
+            totalMessages.push({
+              type: 'Conflict_ruangan',
+              id1: a.id,
+              id2: b.id,
+              deskripsi: `Konflik ruangan, jadwal ${a.id} dan ${b.id} pada hari ke-${a.id_hari} antara ${formatTime(a.jam_mulai)}-${formatTime(a.jam_akhir)} dan ${formatTime(b.jam_mulai)}-${formatTime(b.jam_akhir)}`
+            });
+          }
+        }
         
         if (a.id_dosen === b.id_dosen) {
           const key = `${Math.min(a.id, b.id)}-${Math.max(a.id, b.id)}`;
@@ -152,10 +165,10 @@ export function evaluateSchedule(schedule: any, timePreferences: any) {
             checkedPairs.add(key);
             totalPenalty += 100;
             totalMessages.push({
-              type: 'Conflict',
+              type: 'Conflict_dosen',
               id1: a.id,
               id2: b.id,
-              deskripsi: `Konflik dosen antara jadwal ${a.id} dan ${b.id} pada hari ke-${a.id_hari} antara ${formatTime(a.jam_mulai)}-${formatTime(a.jam_akhir)} dan ${formatTime(b.jam_mulai)}-${formatTime(b.jam_akhir)}`
+              deskripsi: `Konflik dosen, jadwal ${a.id} dan ${b.id} pada hari ke-${a.id_hari} antara ${formatTime(a.jam_mulai)}-${formatTime(a.jam_akhir)} dan ${formatTime(b.jam_mulai)}-${formatTime(b.jam_akhir)}`
             });
           }
         }
@@ -170,7 +183,7 @@ export function evaluateSchedule(schedule: any, timePreferences: any) {
           ? [pref.senin_pagi, pref.selasa_pagi, pref.rabu_pagi, pref.kamis_pagi, pref.jumat_pagi][hariIdx]
           : [pref.senin_malam, pref.selasa_malam, pref.rabu_malam, pref.kamis_malam, pref.jumat_malam][hariIdx];
 
-        if (!preferensi) {
+        if (preferensi) {
           totalPenalty += 100;
           const hariStr = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'][hariIdx] || 'Tidak Dikenal';
           const waktuStr = isPagi ? 'pagi' : 'malam';
@@ -203,13 +216,15 @@ function formatTime(menit: number) {
 // Export juga fungsi untuk memisahkan pesan berdasarkan tipe
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function splitEvaluationMessages(messages: any) {
-  const conflicts = [];
+  const conflicts_dosen = [];
   const preferences = [];
+  const conflicts_ruangan = [];
 
   for (const msg of messages) {
-    if (msg.type === 'Conflict') conflicts.push(msg);
+    if (msg.type === 'Conflict_dosen') conflicts_dosen.push(msg);
+    else if (msg.type === 'Conflict_ruangan') conflicts_ruangan.push(msg);
     else if (msg.type === 'Preference') preferences.push(msg);
   }
 
-  return { conflicts, preferences };
+  return { conflicts_dosen, conflicts_ruangan, preferences };
 }
