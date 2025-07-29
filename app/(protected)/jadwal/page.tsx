@@ -1,11 +1,9 @@
 'use client'
 
-import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver';
-import { JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useSupabaseTableData } from '@/components/hook/useTableData';
 import { Tables } from '@/types/supabase';
-import { evaluateSchedule, splitEvaluationMessages, updateData } from '@/utils/functions';
+import { evaluateSchedule, exportToExcel, splitEvaluationMessages } from '@/utils/functions';
 import TimeModal from '@/components/kaprodi/penjadwalan/TimeModal';
 import Swapmodal from '@/components/jadwal/swapmodal';
 import DayModal from '@/components/jadwal/dayModal';
@@ -81,6 +79,7 @@ const Home = () => {
 	};
 
 	const columnStyle = 'grid grid-cols-[3rem_7rem_3rem_7rem_1fr_3rem_1fr_4rem_8rem_4rem_7rem]'
+	const buttonStyle = 'px-2 py-2 rounded-md cursor-pointer transition-colors bg-gray-500 hover:bg-gray-300 text-white';
 
 	const { data: raw_jadwal } = useSupabaseTableData<Tables<'jadwal'>>('jadwal');
 
@@ -226,112 +225,7 @@ const Home = () => {
 		return String.fromCharCode(64 + id_kelas);
 	}
 
-	const exportToExcel = (data: JadwalList[], fileName = 'jadwal.xlsx') => {
-		const workbook = XLSX.utils.book_new();
-
-		Object.entries(prodiMap).forEach(([prodiId, prodiName]) => {
-			const prodiData = data.filter(j => j.prodi === Number(prodiId));
-			if (prodiData.length === 0) return;
-
-			const pagiData = prodiData.filter(j => j.jam_mulai !== null && j.jam_mulai < 1080);
-			const malamData = prodiData.filter(j => j.jam_mulai !== null && j.jam_mulai >= 1080);
-
-			const semesters = [1, 3, 5, 7, 2, 4, 6, 8];
-			const columnsHeader = ['KODE', 'MATA KULIAH', 'SKS', 'DOSEN', 'HARI', 'WAKTU'];
-
-			const worksheetData: any[][] = [];
-			worksheetData.push([`JADWAL PERKULIAHAN PRODI ${prodiName.toUpperCase()}`]);
-			worksheetData.push([]);
-			worksheetData.push(['PAGI', '', '', '', '', '', 'MALAM', '', '', '', '', '']);
-			worksheetData.push([...columnsHeader, ...columnsHeader]);
-
-			const buildRows = (list: JadwalList[]) =>
-			list.map(item => {
-				const waktu = item.jam_mulai !== null && item.jam_akhir !== null
-				? `${formatWaktu(item.jam_mulai)} - ${formatWaktu(item.jam_akhir)}`
-				: '';
-				return [
-				item.kode,
-				item.nama,
-				item.sks,
-				item.nama_dosen,
-				item.id_hari != null ? getNamaHari(item.id_hari) : '-',
-				waktu
-				];
-			});
-
-			for (const semester of semesters) {
-			const pagiSemester = pagiData.filter(j => j.semester === semester);
-			const malamSemester = malamData.filter(j => j.semester === semester);
-
-			// Kelompokkan berdasarkan kelas
-			const pagiKelasMap = groupByKelas(pagiSemester);
-			const malamKelasMap = groupByKelas(malamSemester);
-
-			const maxKelas = Math.max(
-				Object.keys(pagiKelasMap).length,
-				Object.keys(malamKelasMap).length
-			);
-
-			// Loop per kelas (A, B, C...)
-			const kelasKeys = Array.from({ length: maxKelas }, (_, i) => i + 1);
-
-			for (const kelas of kelasKeys) {
-				const kelasLabel = getKelasLabel(kelas);
-
-				const pagiRows = buildRows(pagiKelasMap[kelas] || []);
-				const malamRows = buildRows(malamKelasMap[kelas] || []);
-				const maxRows = Math.max(pagiRows.length, malamRows.length);
-
-				const pagiHeader = pagiRows.length > 0
-				? [`SEMESTER ${semester} - KELAS ${kelasLabel}`, '', '', '', '', '']
-				: ['', '', '', '', '', ''];
-				const malamHeader = malamRows.length > 0
-				? [`SEMESTER ${semester} - KELAS ${kelasLabel}`, '', '', '', '', '']
-				: ['', '', '', '', '', ''];
-
-				worksheetData.push([...pagiHeader, ...malamHeader]);
-
-				for (let i = 0; i < maxRows; i++) {
-				const pagi = pagiRows[i] ?? ['', '', '', '', '', ''];
-				const malam = malamRows[i] ?? ['', '', '', '', '', ''];
-				worksheetData.push([...pagi, ...malam]);
-				}
-
-				worksheetData.push([]); 
-			}
-			}
-
-			const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-
-			// Merge judul utama
-			worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 11 } }];
-
-			// Auto column width
-			const colWidths: number[] = [];
-			worksheetData.forEach(row => {
-			row.forEach((cell, idx) => {
-				const len = cell?.toString().length ?? 0;
-				colWidths[idx] = Math.max(colWidths[idx] || 10, len + 2);
-			});
-			});
-			worksheet['!cols'] = colWidths.map(w => ({ wch: w }));
-
-			XLSX.utils.book_append_sheet(workbook, worksheet, prodiName);
-		});
-
-		const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-		saveAs(new Blob([buffer], { type: 'application/octet-stream' }), fileName);
-	};	
-
-	// const handleFilterToSwap = () => {
-	// 	const sks = selectedJadwal.sks;
-	// 	const filtered = jadwal.filter((jadwal) => jadwal.sks === sks);
-		
-	// };
-
 	
-
 
 	const jadwalmodal = (item: JadwalList) => {
 		if(!item) return;
@@ -341,44 +235,10 @@ const Home = () => {
 		setOpen(true)
 	}
 
-	
- 
-	
-
-	// useEffect(() => {
-	// 	if (!jadwal || jadwal.length === 0) {
-	// 		setKelasList([1]);
-	// 		setFilterKelas(1);
-	// 		return;
-	// 	}
-
-	// 	let uniqueIdKelas = Array.from(new Set(
-	// 		jadwal.filter((jadwal) => jadwal.id_waktu === waktu)
-	// 		.filter((jadwal) => filterProdi.includes(jadwal.prodi) &&
-	// 			filterSemester.includes(jadwal.semester))
-	// 		.map((jadwal) => jadwal.id_kelas)
-	// 		.filter((id) => id !== null)
-	// 	)) as number[];
-
-	// 	uniqueIdKelas.sort((a, b) => a - b);
-	// 	if (uniqueIdKelas.length === 0) uniqueIdKelas = [1];
-		
-	// 	if (uniqueIdKelas.length === 1 && uniqueIdKelas[0] > 1) {
-	// 		const firstValue = uniqueIdKelas[0];
-	// 		uniqueIdKelas = [firstValue - 1, firstValue];
-	// 	}
-	// 	setKelasList((prevKelasList) => {
-	// 	if (JSON.stringify(prevKelasList) !== JSON.stringify(uniqueIdKelas)) {
-	// 		return uniqueIdKelas;
-	// 	}
-	// 	return prevKelasList;
-	// 	});
-	// }, [filterProdi, filterSemester, jadwal, waktu]);
-
 	return (
-		<div className="h-full w-full flex flex-col items-center bg-white text-black xl:text-xl overflow-hidden">
-			<div className="h-full w-full flex flex-col items-center gap-3 pt-5 px-20">
-				<div className="w-full flex flex-col gap-3">
+		<div className="h-full w-full bg-white text-black xl:text-xl overflow-hidden">
+			<div className="h-full w-full flex flex-col gap-3 py-10 px-20">
+				<div className="h-fit w-full flex flex-col gap-3">
 					<div className='w-full flex gap-5 items-center justify-center'>
 						<div className='flex gap-3 item-center'>
 							{Object.entries(prodiMap).map(([key, label]) => {
@@ -517,8 +377,7 @@ const Home = () => {
 						</div>
 					</div>
 				</div>
-
-				<div className="h-1/2 w-full flex flex-col gap-2">
+				<div className="h-full w-full flex flex-col gap-2">
 					<div className={`bg-[#cefdc2] py-2 w-full ${columnStyle} pr-5 rounded-md gap-3`}>
 						<div className="text-center">no</div>
 						<div className="text-center">prodi</div>
@@ -533,15 +392,15 @@ const Home = () => {
 						<div className="">ruangan</div>
 					</div>
 
-					<div className={`h-full min-h-40 w-full flex flex-col gap-3 overflow-hidden`}>
-						<div className='overflow-y-scroll scroll-snap-y scroll-snap-mandatory scrollbar-visible'>
+					<div className="h-[32rem] w-full flex flex-col overflow-hidden">
+						<div className="h-full overflow-y-auto scroll-snap-y scroll-snap-mandatory">
 							{!filteredJadwal ? (
 							<p className="text-center">Loading...</p>
 							) : (
-							<div className="grid grid-cols-1 gap-2 overflow-hidden">
+							<div className="grid grid-cols-1 gap-3 overflow-hidden">
 								{filteredJadwal.map((item, index) => (
 									<div key={index} onClick={() => jadwalmodal(item)}
-									className={`bg-[#E9E9E9] h-12 w-full ${columnStyle} items-center rounded-md gap-3 shadow cursor-pointer ${getConflicts('id', item.id) ? 'bg-red-300' : 'bg-[#E9E9E9]'}`} >
+									className={`bg-[#E9E9E9] h-13 w-full ${columnStyle} items-center rounded-md gap-3 shadow cursor-pointer ${getConflicts('id', item.id) ? 'bg-red-300' : 'bg-[#E9E9E9]'}`} >
 										<div className="text-center">{typeof index === 'number' ? index + 1 : ''}</div>
 										<div className="text-center">{getprodi(item.prodi)}</div>
 										<div className="text-center">{item.semester}</div>
@@ -565,7 +424,7 @@ const Home = () => {
 					</div>
 				</div>
 
-				<div className='flex flex-col gap-5 w-full items-center px-32'>
+				<div className='h-fit flex flex-col gap-5 w-full items-center px-32'>
 					<div className='flex gap-10 items-center border-solid border-2 py-2 px-2 rounded-md'>
 						{conflictData.find((c: { type: string; }) => c.type === "ruangan") && (
 							<div className='flex gap-3 items-center'>
@@ -623,10 +482,38 @@ const Home = () => {
 							{(conflictData.find((c: { type: string; }) => c.type === "ruangan")?.data as any[])?.find(
 								(conflict: any) => (conflict.id1 === selectedJadwal.id || conflict.id2 === selectedJadwal.id)
 							) && (
-								<div className='flex gap-3 items-center'>
-									<h1 className='lowercase'>
-									konflik jadwal ruangan, jadwal bentrok dengan jadwal lain pada ruangan {selectedRuangan} di hari {getNamaHari(selectedJadwal.id_hari)} {getWaktuPerkuliahan(selectedJadwal.jam_mulai)}
+								<div className="flex gap-3 items-center">
+									<h1 className="lowercase">
+										Jadwal mengalami bentrok dengan jadwal lain pada ruangan {selectedRuangan} di hari {getNamaHari(selectedJadwal.id_hari)} {getWaktuPerkuliahan(selectedJadwal.jam_mulai)}
 									</h1>
+
+									{/* <div className="flex flex-col">
+										{jadwal.filter((j) => j.id_ruangan === selectedJadwal.id_ruangan).length === 0 ? (
+										<p className="text-sm text-gray-500">
+											Tidak ada jadwal pada ruangan ini.
+										</p>
+										) : (
+										<ul className="text-sm space-y-1 max-h-40 overflow-y-auto border p-2 rounded">
+											{jadwal
+											.filter((j) => j.id_ruangan === selectedJadwal.id_ruangan)
+											.sort((a, b) => {
+												if (a.id_hari === b.id_hari) {
+												return a.jam_mulai - b.jam_mulai;
+												}
+												return a.id_hari - b.id_hari;
+											})
+											.map((j) => (
+												<li key={j.id} className="border-b pb-1">
+												<span className="font-medium">
+													Hari {hariMap[j.id_hari]} | {formatWaktu(j.jam_mulai)} - {formatWaktu(j.jam_akhir)}
+												</span>
+												<br />
+												<span className="text-gray-600">{j.nama} - {j.nama_dosen}</span> 
+												</li>
+											))}
+										</ul>
+										)}
+									</div> */}
 								</div>
 							)}
 							{(Array.isArray(conflictData.find((c: { type: string }) => c.type === "dosen")?.data) &&
@@ -663,11 +550,9 @@ const Home = () => {
 
 
 			<Swapmodal isOpen={swapModal}  data={jadwalToSwap} selectedJadwal={selectedJadwal} onView={(id) => getConflicts("id", id)}  onClose={() => setSwapModal(false)} />
-			<DayModal isOpen={dayModal} onClose={() => setDayModal(false)} selectedJadwal={selectedJadwal} jadwalData={jadwal} conflictData={conflictData} setSwap={e => setSwapModal(e)} onView={(id) => getConflicts("id", id)} />
+			<DayModal isOpen={dayModal} onClose={() => setDayModal(false)} selectedJadwal={selectedJadwal} jadwalData={filteredJadwal} conflictData={conflictData} setSwap={e => setSwapModal(e)} onView={(id) => getConflicts("id", id)} />
 
 			{selectedDosen && dosenname && <TimeModal isOpen={timeModal} id={selectedDosen} name={dosenname} onClose={() => {setselectedDosen(1); setdosenname(''); setTimeModal(false);}} />}
-
-			{/* { Open && <DosenModal onClose={() => setOpen(false)} result={(dosenId) => selectedDosen(dosenId) } isOpen={false} /> } */}
 		</div>
 	);
 };

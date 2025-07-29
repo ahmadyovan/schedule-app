@@ -1,3 +1,14 @@
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
+import { JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal, useEffect, useMemo, useState } from "react";
+import { Database } from '@/types/supabase';
+
+type JadwalType = Database["public"]["Tables"]["jadwal"]["Row"] &
+  Pick<Database["public"]["Tables"]["mata_kuliah"]["Row"], "nama" | "sks" | "kode"> & {
+    nama_dosen: string;
+};
+
+
 type Filter = {
   column: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -228,3 +239,143 @@ export function splitEvaluationMessages(messages: any) {
 
   return { conflicts_dosen, conflicts_ruangan, preferences };
 }
+
+
+const prodiMap: Record<number, string> = {
+		1: "Mesin",
+		2: "Komputer",
+		3: "Industri",
+		4: "Informatika",
+		5: "DKV"
+	};
+
+const getprodi = (id: number) => prodiMap[id] || "";
+
+	const formatWaktu = (menit: number): string => {
+		const interval = 40;
+		const menitTepat = Math.floor(menit / interval) * interval;
+		const jam = Math.floor(menitTepat / 60);
+		const menitSisa = menitTepat % 60;
+		return `${jam.toString().padStart(2, "0")}:${menitSisa.toString().padStart(2, "0")}`;
+	};
+
+	const getWaktuPerkuliahan = (menit: number, batasJamMalam = 15): 'pagi' | 'malam' => {
+		const jam = Math.floor(menit / 60);
+		return jam < batasJamMalam ? 'pagi' : 'malam';
+	};
+
+	const getNamaHari = (hari: number): string => {
+		return ["Hari tidak valid", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"][hari] || "-";
+	};
+
+	function groupByKelas(data: JadwalType[]): Record<number, JadwalType[]> {
+	return data.reduce((acc, item) => {
+		const key = item.id_kelas ?? 1;
+		if (!acc[key]) acc[key] = [];
+		acc[key].push(item);
+		return acc;
+	}, {} as Record<number, JadwalType[]>);
+	}
+
+	function getKelasLabel(id_kelas: number): string {
+		return String.fromCharCode(64 + id_kelas);
+	}
+
+export const exportToExcel = (data: JadwalType[], fileName = 'jadwal.xlsx') => {
+		const workbook = XLSX.utils.book_new();
+
+		Object.entries(prodiMap).forEach(([prodiId, prodiName]) => {
+			const prodiData = data.filter(j => j.prodi === Number(prodiId));
+			if (prodiData.length === 0) return;
+
+			const pagiData = prodiData.filter(j => j.jam_mulai !== null && j.jam_mulai < 1080);
+			const malamData = prodiData.filter(j => j.jam_mulai !== null && j.jam_mulai >= 1080);
+
+			const semesters = [1, 3, 5, 7, 2, 4, 6, 8];
+			const columnsHeader = ['KODE', 'MATA KULIAH', 'SKS', 'DOSEN', 'HARI', 'WAKTU'];
+
+			const worksheetData: any[][] = [];
+			worksheetData.push([`JADWAL PERKULIAHAN PRODI ${prodiName.toUpperCase()}`]);
+			worksheetData.push([]);
+			worksheetData.push(['PAGI', '', '', '', '', '', 'MALAM', '', '', '', '', '']);
+			worksheetData.push([...columnsHeader, ...columnsHeader]);
+
+			const buildRows = (list: JadwalType[]) =>
+			list.map(item => {
+				const waktu = item.jam_mulai !== null && item.jam_akhir !== null
+				? `${formatWaktu(item.jam_mulai)} - ${formatWaktu(item.jam_akhir)}`
+				: '';
+				return [
+				item.kode,
+				item.nama,
+				item.sks,
+				item.nama_dosen,
+				item.id_hari != null ? getNamaHari(item.id_hari) : '-',
+				waktu,
+				item.id_ruangan
+				];
+			});
+
+			for (const semester of semesters) {
+			const pagiSemester = pagiData.filter(j => j.semester === semester);
+			const malamSemester = malamData.filter(j => j.semester === semester);
+
+			// Kelompokkan berdasarkan kelas
+			const pagiKelasMap = groupByKelas(pagiSemester);
+			const malamKelasMap = groupByKelas(malamSemester);
+
+			const maxKelas = Math.max(
+				Object.keys(pagiKelasMap).length,
+				Object.keys(malamKelasMap).length
+			);
+
+			// Loop per kelas (A, B, C...)
+			const kelasKeys = Array.from({ length: maxKelas }, (_, i) => i + 1);
+
+			for (const kelas of kelasKeys) {
+				const kelasLabel = getKelasLabel(kelas);
+
+				const pagiRows = buildRows(pagiKelasMap[kelas] || []);
+				const malamRows = buildRows(malamKelasMap[kelas] || []);
+				const maxRows = Math.max(pagiRows.length, malamRows.length);
+
+				const pagiHeader = pagiRows.length > 0
+				? [`SEMESTER ${semester} - KELAS ${kelasLabel}`, '', '', '', '', '']
+				: ['', '', '', '', '', ''];
+				const malamHeader = malamRows.length > 0
+				? [`SEMESTER ${semester} - KELAS ${kelasLabel}`, '', '', '', '', '']
+				: ['', '', '', '', '', ''];
+
+				worksheetData.push([...pagiHeader, ...malamHeader]);
+
+				for (let i = 0; i < maxRows; i++) {
+				const pagi = pagiRows[i] ?? ['', '', '', '', '', ''];
+				const malam = malamRows[i] ?? ['', '', '', '', '', ''];
+				worksheetData.push([...pagi, ...malam]);
+				}
+
+				worksheetData.push([]); 
+			}
+			}
+
+			const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+
+			// Merge judul utama
+			worksheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 11 } }];
+
+			// Auto column width
+			const colWidths: number[] = [];
+			worksheetData.forEach(row => {
+			row.forEach((cell, idx) => {
+				const len = cell?.toString().length ?? 0;
+				colWidths[idx] = Math.max(colWidths[idx] || 10, len + 2);
+			});
+			});
+			worksheet['!cols'] = colWidths.map(w => ({ wch: w }));
+
+			XLSX.utils.book_append_sheet(workbook, worksheet, prodiName);
+		});
+
+		const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+		saveAs(new Blob([buffer], { type: 'application/octet-stream' }), fileName);
+	};	
